@@ -1,0 +1,167 @@
+# Velocity and acceleration limits for the 23-DOF G1, hand:=linkerbot_o6. The arms as joint_limits.yaml
+# explains: 0.8 rad/s and 2.0 rad/s^2, since they track on position-only gains with no gravity
+# compensation. The O6's six joints at 2.0 rad/s, under
+# LinkerBotO6System's 3.0 slew clamp. The mimics get their parent's limit times their ratio (thumb tip
+# 1.86, finger tips 0.89, the larger taken), since MoveIt times every joint a motion moves.
+
+joint_limits:
+  left_shoulder_pitch_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_shoulder_roll_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_shoulder_yaw_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_elbow_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  left_wrist_roll_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_shoulder_pitch_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_shoulder_roll_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_shoulder_yaw_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_elbow_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  right_wrist_roll_joint:
+    has_velocity_limits: true
+    max_velocity: 0.8
+    has_acceleration_limits: true
+    max_acceleration: 2.0
+  lh_thumb_cmc_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  lh_thumb_cmc_yaw:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  lh_index_mcp_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  lh_middle_mcp_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  lh_ring_mcp_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  lh_pinky_mcp_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  rh_thumb_cmc_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  rh_thumb_cmc_yaw:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  rh_index_mcp_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  rh_middle_mcp_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  rh_ring_mcp_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  rh_pinky_mcp_pitch:
+    has_velocity_limits: true
+    max_velocity: 2.0
+    has_acceleration_limits: true
+    max_acceleration: 5.0
+  lh_thumb_ip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  lh_index_dip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  lh_middle_dip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  lh_ring_dip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  lh_pinky_dip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  rh_thumb_ip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  rh_index_dip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  rh_middle_dip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  rh_ring_dip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5
+  rh_pinky_dip:
+    has_velocity_limits: true
+    max_velocity: 3.8
+    has_acceleration_limits: true
+    max_acceleration: 9.5

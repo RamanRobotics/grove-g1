@@ -46,12 +46,28 @@ target_link_libraries(g1_dex3_system PUBLIC
 # instantiates.
 target_compile_options(g1_dex3_system PRIVATE -Wno-deprecated-declarations)
 
+# The LinkerBot O6 over SocketCAN. No SDK: the protocol is LinkerBot's own CAN frames, split out so
+# they unit-test without a bus.
+add_library(linkerbot_o6_protocol src/linkerbot_o6_protocol.cpp)
+g1_target_defaults(linkerbot_o6_protocol)
+
+add_library(linkerbot_o6_system SHARED src/linkerbot_o6_system.cpp)
+g1_target_defaults(linkerbot_o6_system)
+target_link_libraries(linkerbot_o6_system PUBLIC
+  linkerbot_o6_protocol
+  hardware_interface::hardware_interface
+  pluginlib::pluginlib
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  realtime_tools::realtime_tools
+)
+
 pluginlib_export_plugin_description_file(hardware_interface g1_hand_interface.xml)
 
 # --- install ---------------------------------------------------------------
 
 install(DIRECTORY include/ DESTINATION include)
-install(TARGETS g1_dex3_system EXPORT export_${PROJECT_NAME} DESTINATION lib)
+install(TARGETS g1_dex3_system linkerbot_o6_protocol linkerbot_o6_system EXPORT export_${PROJECT_NAME} DESTINATION lib)
 
 # --- tests -----------------------------------------------------------------
 
@@ -65,6 +81,12 @@ if(BUILD_TESTING)
   ament_add_gmock(test_wire_contract test/test_wire_contract.cpp)
   target_link_libraries(test_wire_contract
     g1_dex3_system pluginlib::pluginlib hardware_interface::hardware_interface)
+
+  # The O6's position mapping and frames, and its plugin discovery. Not linked against the plugin
+  # library: pluginlib loads it by name, as controller_manager does.
+  ament_add_gmock(test_linkerbot_o6_protocol test/test_linkerbot_o6_protocol.cpp)
+  target_link_libraries(test_linkerbot_o6_protocol
+    linkerbot_o6_protocol pluginlib::pluginlib hardware_interface::hardware_interface)
 
   g1_add_lint_tests()
 endif()

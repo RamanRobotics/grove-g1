@@ -9,6 +9,15 @@
         onboard balance running underneath.
       </description>
     </class>
+
+    <class name="g1_hardware_interface/G1ArmSdkSystem"
+           type="g1_hardware_interface::G1ArmSdkSystem"
+           base_class_type="hardware_interface::SystemInterface">
+      <description>
+        ros2_control System for a G1 that keeps Unitree's onboard locomotion: the waist and arms
+        over rt/arm_sdk, the base twist over the loco service. The legs are state only.
+      </description>
+    </class>
   </library>
 
 </class_libraries>

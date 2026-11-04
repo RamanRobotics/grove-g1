@@ -1,0 +1,15 @@
+# Close one hand part of the way, whatever the hand: closure 0 is the hand group's `open` posture
+# in the SRDF, 1 its `closed`, and every joint goes the same fraction of the way between them.
+# Planned and executed through MoveIt on <arm>_hand_controller, so the hand must be acquired. A
+# robot without hand joints (the 23-DOF G1's rubber hands) refuses the goal.
+
+# "left" or "right".
+string arm
+# 0 open to 1 closed; outside that range the goal is refused.
+float64 closure
+# A fraction of the server's speed, above 0 and at most 1; 0 takes the whole.
+float64 speed
+---
+bool success
+string message
+---

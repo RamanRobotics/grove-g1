@@ -4,8 +4,9 @@
   <name>g1_hardware_interface</name>
   <version>0.1.0</version>
   <description>
-    ros2_control SystemInterface owning all 29 G1 body motors over Unitree's rt/lowcmd,
-    with no onboard balance running underneath.
+    ros2_control SystemInterfaces for the G1 body: G1LowCmdSystem owns all 29 motors over
+    rt/lowcmd with no onboard balance underneath; G1ArmSdkSystem keeps the onboard locomotion
+    and drives the upper body over rt/arm_sdk.
   </description>
   <maintainer email="gupta.adyansh@gmail.com">Adyansh</maintainer>
   <license>BSD-3-Clause</license>

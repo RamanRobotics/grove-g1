@@ -12,6 +12,7 @@ import sys
 import rclpy
 from controller_manager_msgs.srv import (
     ListControllers,
+    ListHardwareComponents,
     SetHardwareComponentState,
     SwitchController,
 )
@@ -23,10 +24,26 @@ ARM_FREEZE_CONTROLLER = "arm_freeze_controller"
 SERVICE_CALL_TIMEOUT_S = 5.0
 
 # Released first and best-effort: a hand that never came up must not block the arm's release.
+# Whichever of these controller_manager carries, as in activate_arm.
 HANDS = (
     ("G1Dex3SystemLeft", "left_hand_controller"),
     ("G1Dex3SystemRight", "right_hand_controller"),
+    ("LinkerBotO6SystemLeft", "left_hand_controller"),
+    ("LinkerBotO6SystemRight", "right_hand_controller"),
 )
+
+
+def fitted_hands(node, timeout_s):
+    client = node.create_client(
+        ListHardwareComponents, "/controller_manager/list_hardware_components"
+    )
+    if not client.wait_for_service(timeout_sec=timeout_s):
+        return ()
+    future = client.call_async(ListHardwareComponents.Request())
+    rclpy.spin_until_future_complete(node, future, timeout_sec=timeout_s)
+    result = future.result() if future.done() else None
+    names = {c.name for c in result.component} if result else set()
+    return tuple(entry for entry in HANDS if entry[0] in names)
 
 
 def switch_controller(node, client, activate, deactivate, timeout_s):
@@ -93,7 +110,7 @@ def main(argv=None):
             )
             return 0
 
-        for component, controller in HANDS:
+        for component, controller in fitted_hands(node, SERVICE_CALL_TIMEOUT_S):
             node.get_logger().info(f"releasing hand {component}...")
             switch_controller(node, controller_client, [], [controller], SERVICE_CALL_TIMEOUT_S)
             set_component_state(

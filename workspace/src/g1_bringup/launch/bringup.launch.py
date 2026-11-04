@@ -5,6 +5,8 @@
     ros2 launch g1_bringup bringup.launch.py mode:=localization nav:=true rviz:=true
     ros2 launch g1_bringup bringup.launch.py moveit:=true pin_pelvis:=true rviz:=true
     ros2 launch g1_bringup bringup.launch.py mode:=localization nav:=true moveit:=true
+    ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof hand:=linkerbot_o6 mode:=mapping nav:=true
+    ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof hand:=linkerbot_o6 sim:=false  # robot
 
 sim.launch.py and control.launch.py still work standalone; this file composes them with the
 optional packages. Those are found by path lookup, not declared as dependencies, because each
@@ -31,6 +33,10 @@ BRINGUP_SHARE = get_package_share_directory("g1_bringup")
 # 'none' keeps g1_navigation entirely out of the picture; the other two bring it in.
 MODES = ("none", "mapping", "localization")
 
+# The 29-DOF G1 carries Dex3 hands; the 23-DOF one, the hand the operator fitted.
+ROBOTS = ("g1_29dof", "g1_23dof")
+HANDS = {"g1_29dof": ("dex3",), "g1_23dof": ("dummy", "dex3", "linkerbot_o6")}
+
 # Start delays for a bare simulator and for one with a stack beside it. The argument defaults to
 # empty so that neither overrides the other branch.
 SIM_START_DELAY_S = {"bare": "2.0", "loaded": "4.0"}
@@ -39,7 +45,7 @@ SIM_START_DELAY_S = {"bare": "2.0", "loaded": "4.0"}
 _ENABLED_BY = {
     "g1_navigation": "mode:=mapping and mode:=localization",
     "g1_moveit_config": "moveit:=true",
-    "g1_manipulation": "manipulation:=true",
+    "g1_manipulation": "manipulation:=true, or moveit:=true on robot:=g1_23dof,",
     "g1_perception": "perception:=true",
     "g1_vla": "vla:=true",
 }
@@ -67,6 +73,29 @@ def _include(path, **launch_args):
 
 
 # --- validation -----------------------------------------------------------------------------
+
+
+def _validate_robot(robot, hand, sim, mode, want_moveit, want_manipulation, want_vla):
+    """What each robot and hand can run here. The MoveIt config, and so everything that plans
+    through it, is the 29-DOF G1's."""
+    if robot not in ROBOTS:
+        raise RuntimeError(f"robot:={robot!r} is not a robot. Use one of {', '.join(ROBOTS)}.")
+    if hand not in HANDS[robot]:
+        raise RuntimeError(
+            f"hand:={hand!r} does not fit robot:={robot}. It takes {', '.join(HANDS[robot])}."
+        )
+    if robot == "g1_23dof" and (want_manipulation or want_vla):
+        raise RuntimeError(
+            "manipulation and vla are the 29-DOF G1's Dex3 pick, place and learned grasp. On "
+            "robot:=g1_23dof, moveit:=true starts g1_arm_motion_server, whose set_arm_posture, "
+            "move_hand and set_grip actions move the arms and any hand."
+        )
+    if not sim and mode != "none":
+        raise RuntimeError(
+            "sim:=false runs the control stack on the robot. The navigation modes need the "
+            "robot's own LiDAR driver and odometry, which bringup does not start on hardware "
+            "yet; run mode:=none."
+        )
 
 
 def _validate(
@@ -116,7 +145,20 @@ def _simulator(sim_args):
     return _include(os.path.join(BRINGUP_SHARE, "launch", "sim.launch.py"), **sim_args)
 
 
-def _sim_args(context, navigating, want_manipulation, want_perception, want_moveit, pin_pelvis):
+def _hardware(robot, hand):
+    """The control stack alone, against the robot: no simulator, and the O6 on the CAN interface
+    g1_description's linkerbot_o6_params.yaml names."""
+    return _include(
+        os.path.join(BRINGUP_SHARE, "launch", "control.launch.py"),
+        robot=robot,
+        hand=hand,
+        pin_pelvis="false",
+    )
+
+
+def _sim_args(
+    context, navigating, want_manipulation, want_perception, want_moveit, pin_pelvis, robot, hand
+):
     delay = LaunchConfiguration("sim_start_delay_s").perform(context)
     if not delay:
         delay = SIM_START_DELAY_S["loaded" if navigating or want_moveit else "bare"]
@@ -136,6 +178,8 @@ def _sim_args(context, navigating, want_manipulation, want_perception, want_move
         "sim_start_delay_s": delay,
         # We own RViz below; without this the simulator opens its own on the wrong config.
         "rviz": "false",
+        "robot": robot,
+        "hand": hand,
     }
 
 
@@ -152,13 +196,33 @@ def _navigation(mode, want_nav, want_moveit):
     )
 
 
-def _moveit():
+def _robot_args(robot, hand):
+    """Forwarded only off the default robot, so a 29-DOF include reads as it always has."""
+    return {} if robot == "g1_29dof" else {"robot": robot, "hand": hand}
+
+
+def _moveit(robot, hand):
     """Sim-free by design, and it activates nothing: executing a plan still needs the ordered
-    acquire in scripts/activate_arm."""
-    return _include(
-        os.path.join(_share("g1_moveit_config"), "launch", "move_group.launch.py"),
-        servo=EqualsSubstitution(LaunchConfiguration("vla_execution_mode"), "servo"),
-    )
+    acquire in scripts/activate_arm. On the 23-DOF G1 the arm motion server comes with it, the
+    actions that robot's arms and hands are moved through."""
+    if robot == "g1_29dof":
+        return [
+            _include(
+                os.path.join(_share("g1_moveit_config"), "launch", "move_group.launch.py"),
+                servo=EqualsSubstitution(LaunchConfiguration("vla_execution_mode"), "servo"),
+            )
+        ]
+    return [
+        _include(
+            os.path.join(_share("g1_moveit_config"), "launch", "move_group.launch.py"),
+            servo="false",
+            **_robot_args(robot, hand),
+        ),
+        _include(
+            os.path.join(_share("g1_manipulation"), "launch", "arm_motion.launch.py"),
+            **_robot_args(robot, hand),
+        ),
+    ]
 
 
 def _manipulation(want_perception, visualization, world):
@@ -215,7 +279,7 @@ def _activate_arm(delay_s, *args):
     )
 
 
-def _rviz(navigating, want_nav, want_moveit):
+def _rviz(navigating, want_nav, want_moveit, robot="g1_29dof", hand="dex3"):
     """The windows that match what is running. Two, never one: merging the two configs
     segfaults rviz2 on load once the navigation stack is up."""
     windows = []
@@ -224,7 +288,10 @@ def _rviz(navigating, want_nav, want_moveit):
         # MoveIt's own launcher: the MotionPlanning panel needs the semantic and kinematics
         # descriptions as node parameters.
         windows.append(
-            _include(os.path.join(_share("g1_moveit_config"), "launch", "moveit_rviz.launch.py"))
+            _include(
+                os.path.join(_share("g1_moveit_config"), "launch", "moveit_rviz.launch.py"),
+                **_robot_args(robot, hand),
+            )
         )
 
     # Keyed off nav, not mode: the nav config carries a nav2_rviz_plugins display.
@@ -273,22 +340,36 @@ def _setup(context, *args, **kwargs):
     want_perception = _flag(context, "perception")
     want_vla = _flag(context, "vla")
     pin_pelvis = _flag(context, "pin_pelvis")
+    sim = _flag(context, "sim")
+    robot = LaunchConfiguration("robot").perform(context)
+    hand = LaunchConfiguration("hand").perform(context) or HANDS.get(robot, ("",))[0]
     visualization = _visualization(context, want_rviz)
     navigating = mode != "none"
 
+    _validate_robot(robot, hand, sim, mode, want_moveit, want_manipulation, want_vla)
     _validate(mode, want_nav, want_moveit, want_manipulation, want_perception, want_vla, pin_pelvis)
 
-    actions = [
-        _simulator(
-            _sim_args(
-                context, navigating, want_manipulation, want_perception, want_moveit, pin_pelvis
+    if sim:
+        actions = [
+            _simulator(
+                _sim_args(
+                    context,
+                    navigating,
+                    want_manipulation,
+                    want_perception,
+                    want_moveit,
+                    pin_pelvis,
+                    robot,
+                    hand,
+                )
             )
-        )
-    ]
+        ]
+    else:
+        actions = [_hardware(robot, hand)]
     if navigating:
         actions.append(_navigation(mode, want_nav, want_moveit))
     if want_moveit:
-        actions.append(_moveit())
+        actions.extend(_moveit(robot, hand))
     if want_perception:
         actions.append(_perception(visualization))
     if want_manipulation:
@@ -305,7 +386,7 @@ def _setup(context, *args, **kwargs):
     elif _flag(context, "arms_at_sides"):
         actions.append(_activate_arm(arm_delay_s, "--posture", "sides", "--no-hands"))
     if want_rviz:
-        actions.extend(_rviz(navigating, want_nav, want_moveit))
+        actions.extend(_rviz(navigating, want_nav, want_moveit, robot, hand))
     return actions
 
 
@@ -324,6 +405,29 @@ def generate_launch_description():
                 default_value="false",
                 description="Start the Nav2 servers and the base approach. Needs a map: "
                 "mode:=mapping explores while building one, mode:=localization uses the committed one.",
+            ),
+            DeclareLaunchArgument(
+                "robot",
+                default_value="g1_29dof",
+                description="g1_29dof: all 29 motors on rt/lowcmd, balanced by the AGILE policy, "
+                "with Dex3 hands. g1_23dof: Unitree's onboard locomotion walks it from /cmd_vel and "
+                "the upper body goes over rt/arm_sdk; in simulation a stand-in for the onboard "
+                "controller walks it kinematically. moveit:=true on g1_23dof adds "
+                "g1_arm_motion_server; no manipulation or vla there.",
+            ),
+            DeclareLaunchArgument(
+                "hand",
+                default_value="",
+                description="g1_23dof only: dummy (the stock rubber hands, no hand component), "
+                "dex3 (Unitree Dex3-1) or linkerbot_o6 (LinkerBot O6 over CAN: can0 on the robot, "
+                "vcan0 in simulation, see scripts/setup-vcan.sh). Empty is the robot's default: "
+                "dex3 on g1_29dof, dummy on g1_23dof.",
+            ),
+            DeclareLaunchArgument(
+                "sim",
+                default_value="true",
+                description="false runs control.launch.py against the real robot instead of the "
+                "simulator: CYCLONEDDS_URI must reach the robot, and only mode:=none is wired.",
             ),
             DeclareLaunchArgument(
                 "rviz",

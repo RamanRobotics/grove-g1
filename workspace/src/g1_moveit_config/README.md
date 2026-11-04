@@ -123,6 +123,22 @@ MoveIt's attachment is planner bookkeeping, not what carries the load. The finge
 friction, with a simulator grasp weld as a stand-in in the navigation world
 ([pick and place guide](../../../docs/guides/pick-and-place.md)).
 
+## The 23-DOF G1
+
+`move_group.launch.py`, `moveit_rviz.launch.py` and `g1_manipulation`'s `arm_motion.launch.py` take
+`robot` and `hand`, and all build their config through `launch/g1_moveit_robot.py`, so they plan
+against the robot that is running.
+
+| File | Holds |
+|---|---|
+| `g1_23dof_{dummy,dex3,linkerbot_o6}.srdf` | Generated from `g1.srdf`: the same groups and arm poses with five joints per arm, and per hand its own hand groups and postures (the Dex3's three; the O6's `open`, `pinch_ready`, `closed`). The collision matrix is `collisions_updater`'s over 20000 samples. The O6 also exempts each hand's links from each other, since its hulls overlap in a full grip. |
+| `kinematics_23dof.yaml` | `pick_ik`, position only (`rotation_scale: 0`): five joints cannot hold a 6-DoF pose. |
+| `joint_limits_23dof_<hand>.yaml` | The arms as `joint_limits.yaml`; the O6's mimics get their parent's limit times their ratio. |
+| `moveit_controllers_23dof_<hand>.yaml` | The controllers `armsdk_controllers.yaml` and the hand's file spawn. |
+
+The arm groups end at `<side>_hand_tip`, the point each hand reaches with
+(`g1_description`'s `g1_23dof.urdf.xacro`). Servo is the 29-DOF G1's only.
+
 ## Kinematics
 
 `pick_ik` solves each arm. With 7 joints against a 6-DoF pose, the solver picks from a null space.

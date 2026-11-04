@@ -310,3 +310,57 @@ def test_pin_pelvis_with_navigation_is_refused(bringup):
 def test_an_unknown_mode_is_refused(bringup):
     with pytest.raises(RuntimeError, match="is not a mode"):
         _run_setup(bringup, mode="slam")
+
+
+# --- the robot and its hand -------------------------------------------------------------
+
+
+def test_the_robot_and_hand_reach_the_simulator(bringup):
+    args = _sim_args(_run_setup(bringup, mode="none", robot="g1_23dof", hand="linkerbot_o6"))
+    assert args["robot"] == "g1_23dof"
+    assert args["hand"] == "linkerbot_o6"
+
+
+def test_each_robot_has_its_default_hand(bringup):
+    assert _sim_args(_run_setup(bringup, mode="none"))["hand"] == "dex3"
+    assert _sim_args(_run_setup(bringup, mode="none", robot="g1_23dof"))["hand"] == "dummy"
+
+
+def test_the_23dof_robot_navigates(bringup):
+    includes = _includes(_run_setup(bringup, mode="mapping", nav="true", robot="g1_23dof"))
+    assert [name for name, _ in includes] == ["sim.launch.py", "nav_stack.launch.py"]
+
+
+def test_hardware_stages_no_simulator(bringup):
+    includes = _includes(_run_setup(bringup, mode="none", robot="g1_23dof", sim="false"))
+    assert [name for name, _ in includes] == ["control.launch.py"]
+    assert dict(includes)["control.launch.py"]["hand"] == "dummy"
+
+
+def test_the_23dof_robot_plans_for_its_hand_and_serves_arm_motion(bringup):
+    includes = _includes(
+        _run_setup(bringup, mode="none", robot="g1_23dof", hand="linkerbot_o6", moveit="true")
+    )
+    names = [name for name, _ in includes]
+    assert names == ["sim.launch.py", "move_group.launch.py", "arm_motion.launch.py"]
+    for name in ("move_group.launch.py", "arm_motion.launch.py"):
+        assert dict(includes)[name]["robot"] == "g1_23dof", name
+        assert dict(includes)[name]["hand"] == "linkerbot_o6", name
+    assert dict(includes)["move_group.launch.py"]["servo"] == "false"
+
+
+def test_the_23dof_robot_refuses_pick_and_place(bringup):
+    with pytest.raises(RuntimeError, match="g1_arm_motion_server"):
+        _run_setup(bringup, mode="none", robot="g1_23dof", moveit="true", manipulation="true")
+
+
+def test_a_hand_must_fit_the_robot(bringup):
+    with pytest.raises(RuntimeError, match="does not fit"):
+        _run_setup(bringup, mode="none", hand="linkerbot_o6")
+    with pytest.raises(RuntimeError, match="does not fit"):
+        _run_setup(bringup, mode="none", robot="g1_23dof", hand="paw")
+
+
+def test_hardware_refuses_navigation(bringup):
+    with pytest.raises(RuntimeError, match="sim:=false"):
+        _run_setup(bringup, mode="mapping", robot="g1_23dof", sim="false")

@@ -8,6 +8,8 @@ find_package(ament_cmake REQUIRED)
 # --- install ---------------------------------------------------------------
 
 install(DIRECTORY urdf config DESTINATION share/${PROJECT_NAME})
+# The LinkerBot O6's collision OBJs, committed: Apache-2.0, 280 kB a hand, and no image ships them.
+install(DIRECTORY meshes/linkerbot_o6 DESTINATION share/${PROJECT_NAME}/meshes)
 
 # Copied at configure time rather than committed
 set(G1_VENDOR_MESHES "/opt/unitree_robotics/unitree_mujoco/unitree_robots/g1/meshes"
@@ -27,6 +29,13 @@ if(EXISTS "${G1_VENDOR_MESHES}")
       configure_file("${_src}" "${_alias}" COPYONLY)
     endif()
   endforeach()
+  # The 23-DOF description names its torso torso_link_23dof_rev_1_0, which the vendored set also
+  # ships unsuffixed: the simulator's g1_23dof.xml draws the same torso_link.STL.
+  set(_src "${CMAKE_CURRENT_BINARY_DIR}/meshes/torso_link.STL")
+  set(_alias "${CMAKE_CURRENT_BINARY_DIR}/meshes/torso_link_23dof_rev_1_0.STL")
+  if(EXISTS "${_src}" AND NOT EXISTS "${_alias}")
+    configure_file("${_src}" "${_alias}" COPYONLY)
+  endif()
 
   install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/meshes" DESTINATION share/${PROJECT_NAME})
 else()
@@ -45,6 +54,11 @@ if(BUILD_TESTING)
     ENV "G1_LOWCMD_XACRO=${CMAKE_CURRENT_SOURCE_DIR}/urdf/g1_lowcmd.urdf.xacro"
   )
   # The sensor mounts are duplicated in the simulator, which links no ROS and cannot read TF.
+  # The 23-DOF entry point with each hand: the body component, the onboard legs, the hand
+  # components' wire order.
+  ament_add_pytest_test(test_23dof_xacro test/test_23dof_xacro.py
+    ENV "G1_23DOF_XACRO=${CMAKE_CURRENT_SOURCE_DIR}/urdf/g1_23dof.urdf.xacro"
+  )
   ament_add_pytest_test(test_sensor_mounts test/test_sensor_mounts.py)
   ament_add_pytest_test(test_motor_order test/test_motor_order.py)
 
