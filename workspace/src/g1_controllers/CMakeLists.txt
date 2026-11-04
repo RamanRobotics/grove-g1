@@ -65,6 +65,20 @@ target_link_libraries(g1_safety_controller PUBLIC
   ${controller_manager_msgs_TARGETS}
 )
 
+# The 23-DOF G1's walking: /cmd_vel to the onboard locomotion's twist, no policy.
+add_library(g1_loco_controller SHARED src/g1_loco_controller.cpp)
+g1_target_defaults(g1_loco_controller)
+target_link_libraries(g1_loco_controller PUBLIC
+  controller_interface::controller_interface
+  hardware_interface::hardware_interface
+  pluginlib::pluginlib
+  rclcpp::rclcpp
+  rclcpp_lifecycle::rclcpp_lifecycle
+  realtime_tools::realtime_tools
+  ${geometry_msgs_TARGETS}
+  ${std_msgs_TARGETS}
+)
+
 pluginlib_export_plugin_description_file(controller_interface g1_controllers.xml)
 
 # --- install ---------------------------------------------------------------
@@ -73,6 +87,7 @@ install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY config policy DESTINATION share/${PROJECT_NAME})
 install(
   TARGETS g1_agile_policy g1_freeze_controller g1_agile_controller g1_safety_controller
+    g1_loco_controller
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -91,8 +106,12 @@ if(BUILD_TESTING)
   # a clean compile does not check the plugin XML or its export.
   ament_add_gmock(test_freeze_pluginlib test/test_freeze_pluginlib.cpp)
   target_link_libraries(test_freeze_pluginlib
-    g1_freeze_controller g1_agile_controller g1_safety_controller
+    g1_freeze_controller g1_agile_controller g1_safety_controller g1_loco_controller
     pluginlib::pluginlib controller_interface::controller_interface)
+
+  # The /cmd_vel timeout and clamps the 23-DOF base walks on.
+  ament_add_gmock(test_loco_command test/test_loco_command.cpp)
+  target_link_libraries(test_loco_command g1_loco_controller)
 
   # The blend and slew are the only safety-critical arithmetic here, so they are tested
   # directly rather than through a controller_manager harness.
@@ -122,6 +141,7 @@ ament_export_libraries(
   g1_freeze_controller
   g1_agile_controller
   g1_safety_controller
+  g1_loco_controller
 )
 ament_export_targets(export_${PROJECT_NAME})
 ament_export_dependencies(

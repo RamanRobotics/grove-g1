@@ -24,6 +24,24 @@ It reaches the wire through unitree_sdk2's own CycloneDDS, not through ROS. `CMa
 `DT_RPATH` at the SDK's `lib/` because ROS's CycloneDDS has the same SONAME and a different ABI. ROS
 itself runs `rmw_fastrtps_cpp` image-wide for the same reason.
 
+## G1ArmSdkSystem
+
+The 23-DOF G1's body component, for a robot that keeps Unitree's onboard locomotion. It reads
+`rt/lowstate` like `G1LowCmdSystem`, but it never writes `rt/lowcmd` or releases the onboard mode:
+
+- The waist and arms go out on `rt/arm_sdk`, with the same five command interfaces and mode table.
+  The blend weight (`motor_cmd[29].q`) ramps to 1 over `engage_ramp_s` only while every upper-body
+  joint is claimed, and back to 0 if one loses its controller or on release, so the onboard pose
+  takes the arms back rather than leaving them limp.
+- The `loco` GPIO's twist goes to `unitree::robot::g1::LocoClient::SetVelocity` from a thread of
+  its own at `loco_command_rate_hz`, each command lasting `loco_command_duration_s`, so the robot
+  stops on its own if the stack dies. Idle zeros are not sent, so the remote still works.
+- The legs are state only.
+
+Both components build into the `g1_lowcmd_system` library: a plugin library linked into another
+registers its factories twice and corrupts the heap on unload. `test_armsdk_handover` covers the
+weight ramp and the twist clamp.
+
 ## Layout
 
 | File | Contents |

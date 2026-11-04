@@ -77,6 +77,31 @@ command and clamps to the URDF's effort limits.
 - `status = Lock` holds the finger where it is rather than going limp, as on hardware. The same applies before any command arrives, and one second after the last one.
 - Finger contact exists only where a scene opts in. The palm and fingers have collision primitives on their own contact bit (`contype` 2), so only the props and tables a scene marks `contype` 3 can touch them.
 
+## LinkerBotO6System
+
+One LinkerBot O6 hand over SocketCAN, with LinkerBot's own protocol
+(linker-bot/linkerhand-python-sdk): 1 Mbit/s, standard ids 0x28 left and 0x27 right, frame type in
+byte 0. `0x01` with six bytes sets the joints (255 open, 0 closed), and sent empty it asks for
+them; the hand answers with its six positions. `0x05` and `0x02` set speed and torque, 0-255, once
+on activate. No SDK: `linkerbot_o6_protocol.{hpp,cpp}` is the whole wire format, unit-tested.
+
+| Interface | Kind | Source |
+|---|---|---|
+| `position` | command, six joints in wire order | clamped to `min`/`max`, slewed at `max_joint_velocity_rad_s` |
+| `position`, `velocity` | state, the six | the reply, mapped back to radians; velocity by difference |
+| `position` | state, the five mimics | `mimic_multiplier` times `mimic_parent` |
+
+The socket is served by its own thread at `command_rate_hz`; `read()` and `write()` only touch
+buffers. Activation waits 2 s for a reply. In simulation the same frames are answered by
+unitree_mujoco's `o6_can_handler.cc` on `vcan0` (`scripts/setup-vcan.sh`), so the component is not
+swapped out. Each tick sends the command and then a state request, the read LinkerBot's SDK uses
+(`get_current_status`), so nothing depends on whether a hand also answers a command frame; the
+simulator answers only the request, to keep it that way. The hand does not report current
+(the SDK's `get_current` is "not supported yet"), so `effort` is not exported.
+
+On the robot, bring the CAN adapter up at 1 Mbit/s first:
+`sudo ip link set can0 up type can bitrate 1000000`.
+
 ## Tests
 
 ```bash

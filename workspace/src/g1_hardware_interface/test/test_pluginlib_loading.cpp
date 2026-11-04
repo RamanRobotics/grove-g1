@@ -24,3 +24,18 @@ TEST(G1LowCmdSystemPluginlib, DiscoversAndInstantiates)
     auto instance = loader.createUniqueInstance("g1_hardware_interface/G1LowCmdSystem");
     ASSERT_NE(instance, nullptr);
 }
+
+/**
+ * @brief G1ArmSdkSystem resolves the same way, from its own library.
+ */
+TEST(G1ArmSdkSystemPluginlib, DiscoversAndInstantiates)
+{
+    pluginlib::ClassLoader<hardware_interface::SystemInterface> loader(
+        "hardware_interface",
+        "hardware_interface::SystemInterface");
+
+    ASSERT_TRUE(loader.isClassAvailable("g1_hardware_interface/G1ArmSdkSystem"));
+
+    auto instance = loader.createUniqueInstance("g1_hardware_interface/G1ArmSdkSystem");
+    ASSERT_NE(instance, nullptr);
+}

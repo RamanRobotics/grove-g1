@@ -1,0 +1,109 @@
+# controller_manager config for the 23-DOF G1 on G1ArmSdkSystem, which keeps Unitree's onboard
+# locomotion: the legs are state only, so nothing here claims them.
+#
+#   loco_controller               the loco twist, from /cmd_vel                          (gpio)
+#   waist_freeze_controller       waist yaw                                               1
+#   arm_freeze_controller  OR  arm_trajectory_controller   the 10 arm joints             10
+#
+# G1ArmSdkSystem blends the upper body in over the onboard pose only while all 11 joints are
+# claimed, and hands them back if one loses its controller. The hands are a separate file,
+# hand_<type>_controllers.yaml, layered over this one by control.launch.py.
+
+controller_manager:
+  ros__parameters:
+    # Hz. Nothing here is a balance loop, but the arm trajectory and the arm_sdk weight ramp run
+    # at it, and it matches the 29-DOF stack.
+    update_rate: 200
+    thread_priority: 80
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    imu_sensor_broadcaster:
+      type: imu_sensor_broadcaster/IMUSensorBroadcaster
+
+    loco_controller:
+      type: g1_controllers/G1LocoController
+
+    waist_freeze_controller:
+      type: g1_controllers/G1FreezeController
+
+    arm_freeze_controller:
+      type: g1_controllers/G1FreezeController
+
+    arm_trajectory_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+joint_state_broadcaster:
+  ros__parameters:
+    interfaces:
+      - position
+      - velocity
+      - effort
+
+imu_sensor_broadcaster:
+  ros__parameters:
+    sensor_name: imu
+    frame_id: pelvis
+
+# The agile_controller contract, on the onboard walking instead of a policy.
+loco_controller:
+  ros__parameters:
+    loco_interface: loco
+    cmd_vel_topic: /cmd_vel
+    # s. A silent publisher reads as a zero command, so a dead planner halts the robot.
+    cmd_vel_timeout: 0.5
+    # m/s and rad/s, as agile_controller, so Nav2's limits mean the same on both robots.
+    max_linear_speed: 0.6
+    max_angular_speed: 0.9
+
+# Gains are Unitree's arm_sdk example's (60/1.5), as g1_description's armsdk_params.yaml.
+waist_freeze_controller:
+  ros__parameters:
+    kp: 60.0
+    kd: 1.5
+    joints:
+      - waist_yaw_joint
+
+# Holds the arms whenever a trajectory does not; swapped 1:1 with arm_trajectory_controller.
+arm_freeze_controller:
+  ros__parameters:
+    kp: 60.0
+    kd: 1.5
+    joints:
+      - left_shoulder_pitch_joint
+      - left_shoulder_roll_joint
+      - left_shoulder_yaw_joint
+      - left_elbow_joint
+      - left_wrist_roll_joint
+      - right_shoulder_pitch_joint
+      - right_shoulder_roll_joint
+      - right_shoulder_yaw_joint
+      - right_elbow_joint
+      - right_wrist_roll_joint
+
+# Position only, so the component's position_only gains apply.
+arm_trajectory_controller:
+  ros__parameters:
+    joints:
+      - left_shoulder_pitch_joint
+      - left_shoulder_roll_joint
+      - left_shoulder_yaw_joint
+      - left_elbow_joint
+      - left_wrist_roll_joint
+      - right_shoulder_pitch_joint
+      - right_shoulder_roll_joint
+      - right_shoulder_yaw_joint
+      - right_elbow_joint
+      - right_wrist_roll_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: true
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 5.0

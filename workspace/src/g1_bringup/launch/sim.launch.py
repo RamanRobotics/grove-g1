@@ -4,6 +4,7 @@ Refuses to start outside the container's DDS environment; see README.md.
 """
 
 import os
+import re
 
 import yaml
 from ament_index_python.packages import get_package_share_directory
@@ -38,7 +39,30 @@ G1_MODEL_DIR = os.path.normpath(
     os.path.join(os.path.dirname(UNITREE_MUJOCO_BIN), "..", "..", "unitree_robots", "g1")
 )
 STAGED_SCENE_NAME = "g1_grove_scene.staged.xml"
+# The SDK bridge reports mode_machine 4, the 23-DOF G1's, for a scene whose name has "23" in it.
+STAGED_SCENE_NAME_23DOF = "g1_grove_scene_23dof.staged.xml"
 STAGED_WALK_BASE = "g1_walk_base.staged.xml"
+
+# Every world scene includes the 29-DOF model; a 23-DOF run stages them onto one of these, all in
+# the vendored model directory. The hand decides which.
+MODEL_INCLUDE = "g1_29dof.xml"
+MODELS_23DOF = {
+    "dummy": "g1_23dof.xml",
+    "dex3": "g1_23dof_dex3.xml",
+    "linkerbot_o6": "g1_23dof_linkerbot_o6.xml",
+}
+# The 23-DOF G1 walks kinematically on the simulator's loco emulator, which this overlay's anchor
+# switches on, rather than balancing.
+WALK_OVERLAY_23DOF = "g1_23dof_walk_scene.xml"
+# Worlds with no 29-DOF-only joints in them. The manipulation worlds hold wrist postures and
+# need MoveIt, which the 23-DOF G1 does not have here.
+WORLDS_23DOF = ("navigation", "perception", "lio", "apartment")
+# The carry welds name the Dex3 palm, which no other hand has; grasp_weld.cc then has none to run.
+GRASP_WELD = re.compile(r"<weld\s+name=\"grasp_[^\"]*\"[^>]*/>", re.DOTALL)
+
+# Where the simulator answers the LinkerBot O6 hands. Virtual, so nothing on it reaches a robot;
+# scripts/setup-vcan.sh creates it on the host, which the container shares a network with.
+O6_SIM_CAN = "vcan0"
 
 # Scenes built from fetched assets (the apartment) name their files under this placeholder,
 # replaced at staging. The default is the host's workspace/assets as the container mounts it.
@@ -156,10 +180,17 @@ def _scene_files(world, sensors, pin_pelvis):
     return "g1_pinned_scene.xml", []
 
 
-def _stage_file(source, target):
-    """Copies one scene into place, pointing any asset placeholders at the fetched assets."""
+def _stage_file(source, target, robot="g1_29dof", hand="dex3"):
+    """Copies one scene into place, pointing any asset placeholders at the fetched assets and, for
+    the 23-DOF G1, its include at the model that has the chosen hand."""
     with open(source, encoding="utf-8") as handle:
         scene = handle.read()
+    if robot == "g1_23dof":
+        scene = scene.replace(
+            f'<include file="{MODEL_INCLUDE}"/>', f'<include file="{MODELS_23DOF[hand]}"/>'
+        )
+        if hand != "dex3":
+            scene = GRASP_WELD.sub("", scene)
     if ASSETS_PLACEHOLDER in scene:
         if not os.path.isdir(ASSETS_DIR):
             raise RuntimeError(
@@ -172,20 +203,24 @@ def _stage_file(source, target):
         handle.write(scene)
 
 
-def _stage_scene(world, sensors, pin_pelvis):
-    """Copies the scene and its bases into the model directory; returns the paths for cleanup."""
+def _stage_scene(world, sensors, pin_pelvis, robot, hand):
+    """Copies the scene and its bases into the model directory; returns the scene's staged name and
+    the paths for cleanup."""
     mjcf_dir = os.path.join(BRINGUP_SHARE, "mjcf")
     overlay, bases = _scene_files(world, sensors, pin_pelvis)
+    scene_name = STAGED_SCENE_NAME
+    if robot == "g1_23dof":
+        overlay, scene_name = WALK_OVERLAY_23DOF, STAGED_SCENE_NAME_23DOF
 
-    staged = os.path.join(G1_MODEL_DIR, STAGED_SCENE_NAME)
-    _stage_file(os.path.join(mjcf_dir, overlay), staged)
+    staged = os.path.join(G1_MODEL_DIR, scene_name)
+    _stage_file(os.path.join(mjcf_dir, overlay), staged, robot, hand)
 
     staged_paths = [staged]
     for source, staged_name in bases:
         target = os.path.join(G1_MODEL_DIR, staged_name)
-        _stage_file(os.path.join(mjcf_dir, source), target)
+        _stage_file(os.path.join(mjcf_dir, source), target, robot, hand)
         staged_paths.append(target)
-    return staged_paths
+    return scene_name, staged_paths
 
 
 def _cleanup_on_shutdown(staged_paths):
@@ -280,7 +315,7 @@ def _odometry_actions(odometry, sim_start_delay_s):
 # --- simulator ------------------------------------------------------------------------------
 
 
-def _simulator(sim_env, headless, sim_start_delay_s):
+def _simulator(sim_env, headless, sim_start_delay_s, scene_name):
     actions = []
     if headless:
         actions.append(
@@ -293,7 +328,7 @@ def _simulator(sim_env, headless, sim_start_delay_s):
         sim_env["DISPLAY"] = XVFB_DISPLAY
 
     sim_process = ExecuteProcess(
-        cmd=[UNITREE_MUJOCO_BIN, "-r", "g1", "-s", STAGED_SCENE_NAME],
+        cmd=[UNITREE_MUJOCO_BIN, "-r", "g1", "-s", scene_name],
         name="unitree_mujoco",
         output="screen",
         env=sim_env,
@@ -325,6 +360,10 @@ def _launch_setup(context, *args, **kwargs):
     world = LaunchConfiguration("world").perform(context)
     odometry = LaunchConfiguration("odometry").perform(context)
     sim_start_delay_s = float(LaunchConfiguration("sim_start_delay_s").perform(context))
+    robot = LaunchConfiguration("robot").perform(context)
+    hand = LaunchConfiguration("hand").perform(context) or (
+        "dex3" if robot == "g1_29dof" else "dummy"
+    )
 
     if world not in WORLDS:
         raise RuntimeError(
@@ -345,8 +384,32 @@ def _launch_setup(context, *args, **kwargs):
             "MuJoCo state, simulation only) or 'fast_lio' (LiDAR-inertial, what the robot runs)."
         )
 
+    if robot == "g1_23dof":
+        if world not in WORLDS_23DOF:
+            raise RuntimeError(
+                f"world:={world} is not staged for robot:=g1_23dof. Use one of "
+                f"{', '.join(WORLDS_23DOF)}: the manipulation worlds hold 29-DOF wrist postures."
+            )
+        if hand not in MODELS_23DOF:
+            raise RuntimeError(f"hand:={hand!r} is not one of {', '.join(MODELS_23DOF)}.")
+        if pin_pelvis:
+            raise RuntimeError(
+                "pin_pelvis:=true is for the 29-DOF G1's policy. The 23-DOF G1's pelvis is "
+                "already carried by the loco emulator; drop it."
+            )
+
     sim_env = dict(os.environ)
     sim_env["LD_LIBRARY_PATH"] = UNITREE_ROBOTICS_LIB + ":" + sim_env.get("LD_LIBRARY_PATH", "")
+    o6_can_interface = ""
+    if hand == "linkerbot_o6":
+        if not os.path.isdir(f"/sys/class/net/{O6_SIM_CAN}"):
+            raise RuntimeError(
+                f"hand:=linkerbot_o6 talks to the simulated hands over CAN, on {O6_SIM_CAN}, which "
+                "does not exist. Create it once per host boot: scripts/setup-vcan.sh (on the host, "
+                "with sudo)."
+            )
+        sim_env["GROVE_G1_O6_CAN"] = O6_SIM_CAN
+        o6_can_interface = O6_SIM_CAN
 
     actions = []
     if sensors:
@@ -355,8 +418,9 @@ def _launch_setup(context, *args, **kwargs):
         )
         actions += _odometry_actions(odometry, sim_start_delay_s)
 
-    actions.append(_cleanup_on_shutdown(_stage_scene(world, sensors, pin_pelvis)))
-    actions += _simulator(sim_env, headless, sim_start_delay_s)
+    scene_name, staged_paths = _stage_scene(world, sensors, pin_pelvis, robot, hand)
+    actions.append(_cleanup_on_shutdown(staged_paths))
+    actions += _simulator(sim_env, headless, sim_start_delay_s, scene_name)
     actions.append(
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(
@@ -364,6 +428,9 @@ def _launch_setup(context, *args, **kwargs):
             ),
             launch_arguments={
                 "pin_pelvis": "true" if pin_pelvis else "false",
+                "robot": robot,
+                "hand": hand,
+                "o6_can_interface": o6_can_interface,
                 "controllers_overrides": LaunchConfiguration("controllers_overrides").perform(
                     context
                 ),
@@ -421,6 +488,19 @@ def generate_launch_description():
                 default_value="false",
                 description="SIM-ONLY: weld the robot in place and freeze the legs instead of "
                 "running the policy, to exercise the arms alone.",
+            ),
+            DeclareLaunchArgument(
+                "robot",
+                default_value="g1_29dof",
+                description="g1_29dof: the policy-balanced 29-DOF G1 with Dex3 hands. g1_23dof: "
+                "the 23-DOF G1, walking on the simulator's stand-in for Unitree's onboard "
+                "controller. Passed to control.launch.py.",
+            ),
+            DeclareLaunchArgument(
+                "hand",
+                default_value="",
+                description="g1_23dof only: dummy (rubber hands), dex3 or linkerbot_o6. Empty is "
+                "the robot's default: dex3 on g1_29dof, dummy on g1_23dof.",
             ),
             DeclareLaunchArgument(
                 "controllers_overrides",

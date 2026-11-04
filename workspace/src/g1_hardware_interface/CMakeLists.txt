@@ -42,7 +42,10 @@ target_include_directories(lowcmd_assembly SYSTEM PUBLIC
   ${UNITREE_SDK2_PREFIX}/include/ddscxx
 )
 
-add_library(g1_lowcmd_system SHARED src/g1_lowcmd_system.cpp)
+# Both body components, G1LowCmdSystem and G1ArmSdkSystem (the G1 that keeps Unitree's onboard
+# locomotion), in one library: they share the motor table, and a plugin library linked into
+# another registers its factories twice and corrupts the heap on unload.
+add_library(g1_lowcmd_system SHARED src/g1_lowcmd_system.cpp src/g1_armsdk_system.cpp)
 g1_target_defaults(g1_lowcmd_system)
 target_link_libraries(g1_lowcmd_system PUBLIC
   lowcmd_assembly
@@ -84,6 +87,11 @@ if(BUILD_TESTING)
   ament_add_gmock(test_pluginlib_loading test/test_pluginlib_loading.cpp)
   target_link_libraries(test_pluginlib_loading
     g1_lowcmd_system pluginlib::pluginlib hardware_interface::hardware_interface)
+
+  # The arm_sdk weight ramp and the loco twist clamp, the two places the onboard controller's
+  # handover lives.
+  ament_add_gmock(test_armsdk_handover test/test_armsdk_handover.cpp)
+  target_link_libraries(test_armsdk_handover g1_lowcmd_system)
 
   # The mode table rt/lowcmd resolves interface claims through, plus the release ramp's packing.
   ament_add_gmock(test_lowcmd_assembly test/test_lowcmd_assembly.cpp)

@@ -1,0 +1,59 @@
+# The LinkerBot O6 hands' controllers, layered over armsdk_controllers.yaml with
+# hand:=linkerbot_o6. Same names as the Dex3's, so activate_arm and its callers need no branch.
+
+controller_manager:
+  ros__parameters:
+    # As the Dex3: an absent hand or a CAN bus that is not up fails in activate_arm, not here.
+    hardware_components_initial_state:
+      inactive:
+        - "LinkerBotO6SystemLeft"
+        - "LinkerBotO6SystemRight"
+
+    left_hand_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    right_hand_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+# The six actuated joints in wire order. The mimics are the component's, not a controller's.
+left_hand_controller:
+  ros__parameters:
+    joints:
+      - lh_thumb_cmc_pitch
+      - lh_thumb_cmc_yaw
+      - lh_index_mcp_pitch
+      - lh_middle_mcp_pitch
+      - lh_ring_mcp_pitch
+      - lh_pinky_mcp_pitch
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: true
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 5.0
+
+right_hand_controller:
+  ros__parameters:
+    joints:
+      - rh_thumb_cmc_pitch
+      - rh_thumb_cmc_yaw
+      - rh_index_mcp_pitch
+      - rh_middle_mcp_pitch
+      - rh_ring_mcp_pitch
+      - rh_pinky_mcp_pitch
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: true
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 5.0
