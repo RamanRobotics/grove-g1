@@ -7,6 +7,7 @@
     ros2 launch g1_bringup bringup.launch.py mode:=localization nav:=true moveit:=true
     ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof hand:=linkerbot_o6 mode:=mapping nav:=true
     ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof hand:=linkerbot_o6 sim:=false  # robot
+    ros2 launch g1_bringup bringup.launch.py world:=ces mode:=localization nav:=true rviz:=true  # CES cell
 
 sim.launch.py and control.launch.py still work standalone; this file composes them with the
 optional packages. Those are found by path lookup, not declared as dependencies, because each
@@ -36,6 +37,10 @@ MODES = ("none", "mapping", "localization")
 # The 29-DOF G1 carries Dex3 hands; the 23-DOF one, the hand the operator fitted.
 ROBOTS = ("g1_29dof", "g1_23dof")
 HANDS = {"g1_29dof": ("dex3",), "g1_23dof": ("dummy", "dex3", "linkerbot_o6")}
+
+# Worlds with a committed map in g1_navigation/maps; localization against any other one falls back
+# to the facility's map and never converges.
+MAPPED_WORLDS = ("navigation", "apartment", "ces")
 
 # Start delays for a bare simulator and for one with a stack beside it. The argument defaults to
 # empty so that neither overrides the other branch.
@@ -348,6 +353,12 @@ def _setup(context, *args, **kwargs):
 
     _validate_robot(robot, hand, sim, mode, want_moveit, want_manipulation, want_vla)
     _validate(mode, want_nav, want_moveit, want_manipulation, want_perception, want_vla, pin_pelvis)
+    world = LaunchConfiguration("world").perform(context)
+    if sim and mode == "localization" and world not in MAPPED_WORLDS:
+        raise RuntimeError(
+            f"world:={world} has no committed map, so mode:=localization would load the "
+            f"facility's. Use mode:=mapping there, or one of {', '.join(MAPPED_WORLDS)}."
+        )
 
     if sim:
         actions = [
@@ -591,7 +602,9 @@ def generate_launch_description():
                 "five furnished rooms; each has a committed map, which localization picks by "
                 "world, and against any other world it will not converge. 'manipulation' is one "
                 "object at arm's length, for a pick without navigating to the workbench first; "
-                "'tabletop' is five of different shapes, for perception.",
+                "'tabletop' is five of different shapes, for perception; 'ces' is the CES demo "
+                "cell, a tote carried from the inbound rack to the assembly bench, with a "
+                "committed map of its own.",
             ),
             DeclareLaunchArgument(
                 "cameras",

@@ -56,7 +56,7 @@ MODELS_23DOF = {
 WALK_OVERLAY_23DOF = "g1_23dof_walk_scene.xml"
 # Worlds with no 29-DOF-only joints in them. The manipulation worlds hold wrist postures and
 # need MoveIt, which the 23-DOF G1 does not have here.
-WORLDS_23DOF = ("navigation", "perception", "lio", "apartment")
+WORLDS_23DOF = ("navigation", "perception", "lio", "apartment", "ces")
 # The carry welds name the Dex3 palm, which no other hand has; grasp_weld.cc then has none to run.
 GRASP_WELD = re.compile(r"<weld\s+name=\"grasp_[^\"]*\"[^>]*/>", re.DOTALL)
 
@@ -84,7 +84,7 @@ SIM_START_DELAY_S = 2.0
 # after spawn, it bakes in a wrong gravity and diverges.
 FASTLIO_EXTRA_DELAY_S = 10.0
 
-WORLDS = ("navigation", "perception", "manipulation", "tabletop", "lio", "apartment")
+WORLDS = ("navigation", "perception", "manipulation", "tabletop", "lio", "apartment", "ces")
 ODOMETRY_SOURCES = ("ground_truth", "fast_lio")
 
 EXPECTED_RMW = "rmw_fastrtps_cpp"
@@ -371,8 +371,9 @@ def _launch_setup(context, *args, **kwargs):
             "'perception' (the small room the geometry test measures against), "
             "'manipulation' (one object on a pedestal at arm's length, for the skill tests), "
             "'tabletop' (several objects on a table, for perception), 'lio' (the walled, "
-            "asymmetric room for scoring LiDAR-inertial odometry) or 'apartment' (five "
-            "furnished rooms off a hallway, for the semantic map and exploration)."
+            "asymmetric room for scoring LiDAR-inertial odometry), 'apartment' (five "
+            "furnished rooms off a hallway, for the semantic map and exploration) or 'ces' "
+            "(the CES demo cell: rack, assembly bench and outbound desk, for the tote carry)."
         )
     pinned = os.path.join(BRINGUP_SHARE, "mjcf", f"g1_{world}_pinned_scene.xml")
     if pin_pelvis and sensors and not os.path.isfile(pinned):
@@ -456,7 +457,8 @@ def generate_launch_description():
                 "against; 'manipulation' is one object at arm's length; 'tabletop' is several "
                 "objects on a pedestal, for perception; 'lio' is the walled room for scoring "
                 "odometry; 'apartment' is five furnished rooms off a hallway, built from fetched "
-                "assets (scripts/setup-world-assets.sh).",
+                "assets (scripts/setup-world-assets.sh); 'ces' is the CES demo cell, a tote "
+                "carried from the inbound rack to the assembly bench and outbound desk.",
             ),
             DeclareLaunchArgument(
                 "rviz",

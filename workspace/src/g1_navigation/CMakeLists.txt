@@ -10,7 +10,7 @@ find_package(ament_cmake REQUIRED)
 install(DIRECTORY launch config maps DESTINATION share/${PROJECT_NAME})
 # Run in-container via `ros2 run g1_navigation nav_soak`, not from the host.
 install(
-  PROGRAMS scripts/nav_soak scripts/nav_diag.py
+  PROGRAMS scripts/nav_soak scripts/nav_diag.py scripts/waypoint_loop.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

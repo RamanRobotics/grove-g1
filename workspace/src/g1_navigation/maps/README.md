@@ -4,6 +4,7 @@ One occupancy grid per world that has a map. `localization.launch.py` picks the 
 
 - `facility` for `navigation`.
 - `apartment` for `apartment`.
+- `ces` for `ces`.
 - `facility` for anything else.
 
 `facility` is the `navigation` world (`g1_navigation_scene.xml`), mapped with `mode:=mapping`. It is
@@ -13,6 +14,9 @@ rooms, the doorways, the shelving, the workbench and the pillars.
 `apartment` is the `apartment` world: 420 by 260 cells at 5 cm, origin `[-5.5, -6.5]`.
 `g1_bringup`'s `tools/build_world.py` rasterizes it from the scene instead of mapping it. See
 [worlds/README.md](../../g1_bringup/worlds/README.md).
+
+`ces` is the `ces` world (`g1_ces_scene.xml`), the CES demo cell: 123 by 64 cells at 5 cm, origin
+`[-3.223, -1.597]`, covering the 6.1 by 3.0 m walled cell. Re-map it whenever the scene changes.
 
 ## Only the occupancy grid is committed
 
