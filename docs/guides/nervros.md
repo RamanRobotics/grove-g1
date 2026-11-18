@@ -613,10 +613,11 @@ apartment stack with the arm (as `nervros.sh app` starts it) and the local model
 
 ```bash
 cargo run -p nervros-cli -- --profile ../g1_bringup/config/nervros/nervros.toml \
-  eval ../g1_bringup/config/nervros/eval/apartment.toml
+  eval ../g1_bringup/config/nervros/eval/apartment.toml --live
 ```
 
-- Each case runs in a fresh session with every approval granted. The robot carries its place and
+- Each case runs in a fresh session with every approval granted, so `--live` is required and is
+  only for the simulator. The robot carries its place and
   what it holds from case to case.
 - Moves and turns are judged on where the simulator says the pelvis is, not on the robot's own
   estimate.
@@ -642,10 +643,13 @@ Three smaller suites sit beside it:
 
 Without the simulator, `nervros-cli --profile ../g1_bringup/config/nervros/nervros.toml record
 g1.toml` writes the running stack as a scripted robot: the graph, the nodes each container hosts,
-the parameters, the topics the profile names and the executor's catalog. Then
-`eval ../g1_bringup/config/nervros/eval/apartment.toml --robot g1.toml --models a,b` compares
-models on it in minutes, with no simulator running. Nothing moves there and every plan is accepted,
-so the cases that measure the robot's motion cannot pass: pick the others with `--only`.
+the parameters, the topics the profile names, a frame from each camera and the executor's catalog.
+`eval/record_answers.py`, run in the container, adds canopy's answers to `find_objects`. Then
+`eval ../g1_bringup/config/nervros/eval/apartment.toml --robot g1.toml --robot answers.toml --models
+a,b --repeat 3` compares models on it in minutes, with no simulator running. Every plan is accepted
+and a mission moves the robot as its plan says; objects stay where they were.
+`apartment-heldout.toml` asks for the same kinds of thing in other words: judge models on it, and
+never tune on it.
 
 The window can be driven the same way: NervROS's `live_eval` test types prompts into the real app
 against the running stack, approves its cards, and saves the window at each step for a person to
