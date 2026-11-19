@@ -35,7 +35,9 @@ All seven are actions because each runs for seconds and must be cancellable.
 |---|---|---|---|
 | `Pick` | `g1_manipulation_server` | `object_id`, `arm` | The pose is read from `/objects` when the goal starts, so a retry re-reads it. An object not seen recently fails the goal. |
 | `Place` | `g1_manipulation_server` | `surface_object_id` or `pose`, `arm` | `pose` is where the object ends up, not the palm, and is transformed into the planning frame on arrival. Prefer the surface: it comes from `/objects`, the stream the approach drove against. |
-| `SetArmPosture` | `g1_manipulation_server` | `group`, `named_target` | Named SRDF poses only. An unknown name fails the goal. |
+| `SetArmPosture` | `g1_manipulation_server`, `g1_arm_motion_server` | `group`, `named_target` | Named SRDF poses only. An unknown name fails the goal. |
+| `MoveHand` | `g1_manipulation_server`, `g1_arm_motion_server` | `arm`, `target`, `offset`, `mode`, `speed` | A hand to a point (`reach`) or onto the shoulder's line to it (`point`). Never moves the fingers. |
+| `SetGrip` | `g1_arm_motion_server` | `arm`, `closure`, `speed` | Any hand, `closure` from its SRDF `open` (0) to `closed` (1). Refused on a robot with no hand joints. |
 | `ApproachObject` | `g1_base_approach` | `object_id`, `arm`, `working_yaw`, `use_current_heading`, `timeout_s` | Walks the base until the object is inside the arm's reach window, judged in the base frame. Nav2 only parks within 0.5 m. |
 | `Retreat` | `g1_base_approach` | `distance_m`, `timeout_s` | Reverses clear of a surface and stops, without turning. |
 | `StepClear` | `g1_base_approach` | `clearance_m`, `timeout_s` | Turns, then walks straight out of the band where Nav2 counts the robot as touching an obstacle. Succeeds at once when already clear. |
@@ -47,6 +49,7 @@ All seven are actions because each runs for seconds and must be cancellable.
 |---|---|---|
 | `GetActionChunk` | a `g1_vla` policy engine | `instruction` in, one chunk of absolute joint positions out. Positions may name any subset of the arm and hand joints. `time_from_start` must increase. `new_episode` marks a goal's first request. |
 | `GenerateGrasps` | a `g1_perception` grasp source | Object id and hand in, poses and scores out, best first. Poses are in the generator's own gripper frame. The caller applies one measured offset. |
+| `GetPostures` | `g1_arm_motion_server` | The groups it drives and each one's named postures, for the robot and hand that are running. |
 | `GroundInstruction` | `g1_instruction_grounder` | Instruction in, detector phrases and the target phrase out, plus optional exemplar pixels. |
 
 ## Messages

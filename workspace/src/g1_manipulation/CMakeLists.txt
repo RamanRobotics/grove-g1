@@ -11,6 +11,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(lifecycle_msgs REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_msgs REQUIRED)
+find_package(moveit_ros_planning REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
@@ -86,6 +87,22 @@ target_link_libraries(g1_manipulation_server_node PUBLIC
   ${visualization_msgs_TARGETS}
 )
 
+# Arm and hand motion for any G1 and hand: SetArmPosture, MoveHand, SetGrip and GetPostures.
+add_library(g1_arm_motion_server_node src/g1_arm_motion_server_node.cpp)
+g1_target_defaults(g1_arm_motion_server_node)
+target_link_libraries(g1_arm_motion_server_node PUBLIC
+  rclcpp::rclcpp
+  rclcpp_action::rclcpp_action
+  tf2::tf2
+  tf2_ros::tf2_ros
+  tf2_geometry_msgs::tf2_geometry_msgs
+  moveit_core::moveit_planning_scene
+  moveit_ros_planning::moveit_robot_model_loader
+  moveit_ros_planning_interface::moveit_move_group_interface
+  ${g1_msgs_TARGETS}
+  ${geometry_msgs_TARGETS}
+)
+
 # --- executables -----------------------------------------------------------
 
 add_executable(g1_object_pose_source src/g1_object_pose_source_main.cpp)
@@ -95,6 +112,10 @@ target_link_libraries(g1_object_pose_source PUBLIC g1_object_pose_source_node ${
 add_executable(g1_manipulation_server src/g1_manipulation_server_main.cpp)
 g1_target_defaults(g1_manipulation_server)
 target_link_libraries(g1_manipulation_server PUBLIC g1_manipulation_server_node)
+
+add_executable(g1_arm_motion_server src/g1_arm_motion_server_main.cpp)
+g1_target_defaults(g1_arm_motion_server)
+target_link_libraries(g1_arm_motion_server PUBLIC g1_arm_motion_server_node)
 
 # --- install ---------------------------------------------------------------
 
@@ -106,8 +127,9 @@ install(TARGETS
   g1_grip_check
   g1_object_pose_source_node
   g1_manipulation_server_node
+  g1_arm_motion_server_node
   EXPORT export_${PROJECT_NAME} DESTINATION lib)
-install(TARGETS g1_object_pose_source g1_manipulation_server DESTINATION lib/${PROJECT_NAME})
+install(TARGETS g1_object_pose_source g1_manipulation_server g1_arm_motion_server DESTINATION lib/${PROJECT_NAME})
 
 # --- tests -----------------------------------------------------------------
 
@@ -121,6 +143,10 @@ if(BUILD_TESTING)
 
   ament_add_gmock(test_grasp_geometry test/test_grasp_geometry.cpp)
   target_link_libraries(test_grasp_geometry g1_manipulation_server_node)
+
+  # The grip interpolation and the pointing reach of the motion server, no MoveIt needed.
+  ament_add_gmock(test_arm_motion test/test_arm_motion.cpp)
+  target_link_libraries(test_arm_motion g1_arm_motion_server_node)
 
   ament_add_gmock(test_grasp_filter test/test_grasp_filter.cpp)
   target_link_libraries(test_grasp_filter g1_grasp_filter)

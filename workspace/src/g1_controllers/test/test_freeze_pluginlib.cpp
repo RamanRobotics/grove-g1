@@ -18,8 +18,9 @@ TEST(G1ControllersPluginlib, PlainControllersResolveAndInstantiate)
         "controller_interface",
         "controller_interface::ControllerInterface");
 
-    for (const auto* name :
-         { "g1_controllers/G1FreezeController", "g1_controllers/G1AgileController" })
+    for (const auto* name : { "g1_controllers/G1FreezeController",
+                              "g1_controllers/G1AgileController",
+                              "g1_controllers/G1LocoController" })
     {
         ASSERT_TRUE(loader.isClassAvailable(name)) << name;
         // Shared, not unique: the unique-instance deleter trips clang-analyzer inside pluginlib.

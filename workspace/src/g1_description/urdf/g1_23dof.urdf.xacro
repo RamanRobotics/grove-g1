@@ -1,0 +1,200 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="g1_23dof_rev_1_0">
+
+  <!-- The 23-DOF G1: legs, waist yaw, five joints per arm, on G1ArmSdkSystem, which keeps
+       Unitree's onboard locomotion. The legs are state only.
+
+       hand: dummy (the stock rubber hands, no hand component), dex3 (Unitree Dex3-1, over its
+       SDK channels) or linkerbot_o6 (LinkerBot O6, over SocketCAN on o6_can_interface). -->
+  <xacro:arg name="hand" default="dummy"/>
+  <xacro:arg name="o6_can_interface" default=""/>
+
+  <xacro:property name="hand" value="$(arg hand)"/>
+  <!-- Fails the expansion on an unknown hand, rather than emitting a robot with none. -->
+  <xacro:unless value="${hand in ['dummy', 'dex3', 'linkerbot_o6']}">
+    ${xacro.fatal("hand:=" + hand + " is not a hand: use dummy, dex3 or linkerbot_o6")}
+  </xacro:unless>
+
+  <!-- Unitree's g1_23dof_rev_1_0.urdf, unchanged apart from mesh paths rewritten to package://
+       and the rubber hands put behind the hand arg. -->
+  <xacro:include filename="g1_23dof_rev_1_0.urdf.xacro"/>
+
+  <xacro:include filename="g1_sensor_frames.xacro"/>
+  <xacro:g1_sensor_frames/>
+
+  <xacro:if value="${hand == 'dex3'}">
+    <xacro:include filename="g1_23dof_dex3.xacro"/>
+    <xacro:include filename="g1_dex3.xacro"/>
+    <xacro:g1_23dof_dex3_links/>
+    <xacro:g1_dex3_hand side="left"/>
+    <xacro:g1_dex3_hand side="right"/>
+    <xacro:g1_grasp_frame side="left" mirror="-1"/>
+    <xacro:g1_grasp_frame side="right" mirror="1"/>
+  </xacro:if>
+
+  <xacro:if value="${hand == 'linkerbot_o6'}">
+    <xacro:include filename="linkerbot_o6.xacro"/>
+    <xacro:property name="o6" value="${xacro.load_yaml('../config/linkerbot_o6_params.yaml')}"/>
+    <xacro:property name="o6_can" value="$(arg o6_can_interface)"/>
+
+    <xacro:macro name="linkerbot_o6_hand" params="side">
+      <xacro:property name="p" value="${'lh' if side == 'left' else 'rh'}"/>
+      <xacro:linkerbot_o6_links side="${side}" parent="${side}_wrist_roll_rubber_hand"
+                                xyz="${o6.mount[side].xyz}" rpy="${o6.mount[side].rpy}"/>
+
+      <!-- One component per hand, as the Dex3's. The six actuated joints first, in wire order,
+           then the mimics; LinkerBotO6System refuses any other order. -->
+      <ros2_control name="LinkerBotO6System${'Left' if side == 'left' else 'Right'}" type="system">
+        <hardware>
+          <plugin>g1_hand_interface/LinkerBotO6System</plugin>
+          <param name="side">${side}</param>
+          <param name="can_interface">${o6_can if o6_can else o6.system.can_interface}</param>
+          <param name="can_id">${o6.system[side + '_can_id']}</param>
+          <param name="command_rate_hz">${o6.system.command_rate_hz}</param>
+          <param name="state_timeout_ms">${o6.system.state_timeout_ms}</param>
+          <param name="max_joint_velocity_rad_s">${o6.system.max_joint_velocity_rad_s}</param>
+          <param name="speed">${o6.system.speed}</param>
+          <param name="torque">${o6.system.torque}</param>
+        </hardware>
+        <xacro:macro name="o6_actuated" params="names">
+          <xacro:if value="${names}">
+            <joint name="${p}_${names[0]}">
+              <command_interface name="position"/>
+              <state_interface name="position"/>
+              <state_interface name="velocity"/>
+              <param name="min">${o6.limits[names[0]].min}</param>
+              <param name="max">${o6.limits[names[0]].max}</param>
+            </joint>
+            <xacro:o6_actuated names="${names[1:]}"/>
+          </xacro:if>
+        </xacro:macro>
+        <xacro:o6_actuated names="${o6.actuated}"/>
+        <xacro:macro name="o6_mimic" params="names">
+          <xacro:if value="${names}">
+            <joint name="${p}_${names[0]}">
+              <state_interface name="position"/>
+              <param name="mimic_parent">${p}_${o6.mimics[names[0]].parent}</param>
+              <param name="mimic_multiplier">${o6.mimics[names[0]].multiplier}</param>
+            </joint>
+            <xacro:o6_mimic names="${names[1:]}"/>
+          </xacro:if>
+        </xacro:macro>
+        <xacro:o6_mimic names="${list(o6.mimics.keys())}"/>
+      </ros2_control>
+    </xacro:macro>
+
+    <xacro:linkerbot_o6_hand side="left"/>
+    <xacro:linkerbot_o6_hand side="right"/>
+  </xacro:if>
+
+  <!-- The point each hand reaches with, whatever the hand: the arm groups' tip in
+       g1_moveit_config, and the link MoveHand goals move. In the wrist roll link, fingers along +x;
+       y is toward where the palm faces. Approximate: the dummy's is mid rubber hand, the Dex3's is
+       its grasp frame at the 29-DOF wrist chain's zero, the O6's a few cm in front of its palm. -->
+  <xacro:property name="hand_tip" value="${dict(
+      dummy=dict(left=[0.15, 0.0, 0.0], right=[0.15, 0.0, 0.0]),
+      dex3=dict(left=[0.2155, -0.047, 0.0], right=[0.2155, 0.047, 0.0]),
+      linkerbot_o6=dict(left=[0.14, -0.03, 0.0], right=[0.14, 0.03, 0.0]))[hand]}"/>
+  <xacro:macro name="g1_hand_tip" params="side">
+    <link name="${side}_hand_tip"/>
+    <joint name="${side}_hand_tip_joint" type="fixed">
+      <parent link="${side}_wrist_roll_rubber_hand"/>
+      <child link="${side}_hand_tip"/>
+      <origin xyz="${' '.join(str(v) for v in hand_tip[side])}" rpy="0 0 0"/>
+    </joint>
+  </xacro:macro>
+  <xacro:g1_hand_tip side="left"/>
+  <xacro:g1_hand_tip side="right"/>
+
+  <xacro:property name="armsdk" value="${xacro.load_yaml('../config/armsdk_params.yaml')}"/>
+
+  <!-- The onboard controller's joints: measured, never commanded from here. -->
+  <xacro:macro name="g1_onboard_joint" params="name">
+    <joint name="${name}">
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- The rt/arm_sdk joints, with G1LowCmdSystem's five command interfaces and mode table. -->
+  <xacro:macro name="g1_armsdk_joint" params="name">
+    <joint name="${name}">
+      <command_interface name="position"/>
+      <command_interface name="velocity"/>
+      <command_interface name="effort"/>
+      <command_interface name="kp"/>
+      <command_interface name="kd"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+      <param name="position_only_kp">${armsdk.joints[name].position_only_kp}</param>
+      <param name="position_only_kd">${armsdk.joints[name].position_only_kd}</param>
+    </joint>
+  </xacro:macro>
+
+  <ros2_control name="G1ArmSdkSystem" type="system">
+    <hardware>
+      <plugin>g1_hardware_interface/G1ArmSdkSystem</plugin>
+      <param name="domain_id">${armsdk.system.domain_id}</param>
+      <param name="network_interface">${armsdk.system.network_interface}</param>
+      <param name="lowstate_timeout_ms">${armsdk.system.lowstate_timeout_ms}</param>
+      <param name="engage_ramp_s">${armsdk.system.engage_ramp_s}</param>
+      <param name="release_ramp_s">${armsdk.system.release_ramp_s}</param>
+      <param name="loco_command_rate_hz">${armsdk.system.loco_command_rate_hz}</param>
+      <param name="loco_command_duration_s">${armsdk.system.loco_command_duration_s}</param>
+      <param name="max_linear_speed">${armsdk.system.max_linear_speed}</param>
+      <param name="max_angular_speed">${armsdk.system.max_angular_speed}</param>
+      <param name="start_locomotion">${armsdk.system.start_locomotion}</param>
+    </hardware>
+
+    <xacro:g1_onboard_joint name="left_hip_pitch_joint"/>
+    <xacro:g1_onboard_joint name="left_hip_roll_joint"/>
+    <xacro:g1_onboard_joint name="left_hip_yaw_joint"/>
+    <xacro:g1_onboard_joint name="left_knee_joint"/>
+    <xacro:g1_onboard_joint name="left_ankle_pitch_joint"/>
+    <xacro:g1_onboard_joint name="left_ankle_roll_joint"/>
+    <xacro:g1_onboard_joint name="right_hip_pitch_joint"/>
+    <xacro:g1_onboard_joint name="right_hip_roll_joint"/>
+    <xacro:g1_onboard_joint name="right_hip_yaw_joint"/>
+    <xacro:g1_onboard_joint name="right_knee_joint"/>
+    <xacro:g1_onboard_joint name="right_ankle_pitch_joint"/>
+    <xacro:g1_onboard_joint name="right_ankle_roll_joint"/>
+    <xacro:g1_armsdk_joint name="waist_yaw_joint"/>
+    <xacro:g1_armsdk_joint name="left_shoulder_pitch_joint"/>
+    <xacro:g1_armsdk_joint name="left_shoulder_roll_joint"/>
+    <xacro:g1_armsdk_joint name="left_shoulder_yaw_joint"/>
+    <xacro:g1_armsdk_joint name="left_elbow_joint"/>
+    <xacro:g1_armsdk_joint name="left_wrist_roll_joint"/>
+    <xacro:g1_armsdk_joint name="right_shoulder_pitch_joint"/>
+    <xacro:g1_armsdk_joint name="right_shoulder_roll_joint"/>
+    <xacro:g1_armsdk_joint name="right_shoulder_yaw_joint"/>
+    <xacro:g1_armsdk_joint name="right_elbow_joint"/>
+    <xacro:g1_armsdk_joint name="right_wrist_roll_joint"/>
+
+    <sensor name="imu">
+      <state_interface name="orientation.x"/>
+      <state_interface name="orientation.y"/>
+      <state_interface name="orientation.z"/>
+      <state_interface name="orientation.w"/>
+      <state_interface name="angular_velocity.x"/>
+      <state_interface name="angular_velocity.y"/>
+      <state_interface name="angular_velocity.z"/>
+      <state_interface name="linear_acceleration.x"/>
+      <state_interface name="linear_acceleration.y"/>
+      <state_interface name="linear_acceleration.z"/>
+    </sensor>
+
+    <!-- The base twist the onboard locomotion walks to, body frame. loco_controller writes it;
+         the state is what was last sent. -->
+    <gpio name="loco">
+      <command_interface name="linear_x"/>
+      <command_interface name="linear_y"/>
+      <command_interface name="angular_z"/>
+      <state_interface name="linear_x"/>
+      <state_interface name="linear_y"/>
+      <state_interface name="angular_z"/>
+    </gpio>
+  </ros2_control>
+
+</robot>

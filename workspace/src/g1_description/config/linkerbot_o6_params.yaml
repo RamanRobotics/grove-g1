@@ -1,0 +1,43 @@
+# Hardware parameters for g1_hand_interface/LinkerBotO6System, one component per hand, and where
+# each hand mounts.
+#
+# Consumed by urdf/g1_23dof.urdf.xacro via xacro.load_yaml.
+
+system:
+  # The robot's CAN adapter. Simulation overrides it with the xacro arg o6_can_interface (vcan0,
+  # where unitree_mujoco answers). Both hands normally share one bus, told apart by id.
+  can_interface: "can0"
+  # LinkerBot's defaults, 0x28 and 0x27; change only if the hands were re-addressed.
+  left_can_id: 40
+  right_can_id: 39
+  command_rate_hz: 50.0          # Hz; the rate LinkerBot's own SDK loop runs at
+  state_timeout_ms: 500.0        # ms; a reply older than this errors the component while active
+  max_joint_velocity_rad_s: 3.0  # rad/s; slew clamp before the hand's own speed limit
+  speed: 200                     # 0-255, sent once on activate; the hand's own velocity limit
+  torque: 200                    # 0-255, sent once on activate; the SDK's default grip is 200
+
+# Where the hand base sits in the wrist roll link: fingers along the forearm, palm towards the
+# body, thumb up. NOT MEASURED: set these from the real bracket before trusting a grasp pose.
+mount:
+  left:  { xyz: "0.06 0 0", rpy: "-1.5707963 0 -1.5707963" }
+  right: { xyz: "0.06 0 0", rpy: "1.5707963 0 1.5707963" }
+
+# Limits from LinkerBot's URDF and SDK (they agree), since HardwareInfo carries no <limit> tags.
+# Wire order: the component refuses to init if the xacro reorders it.
+actuated: [thumb_cmc_pitch, thumb_cmc_yaw, index_mcp_pitch, middle_mcp_pitch, ring_mcp_pitch,
+           pinky_mcp_pitch]
+limits:
+  thumb_cmc_pitch:  { min: 0.0, max: 0.58 }
+  thumb_cmc_yaw:    { min: 0.0, max: 1.36 }
+  index_mcp_pitch:  { min: 0.0, max: 1.6 }
+  middle_mcp_pitch: { min: 0.0, max: 1.6 }
+  ring_mcp_pitch:   { min: 0.0, max: 1.6 }
+  pinky_mcp_pitch:  { min: 0.0, max: 1.6 }
+
+# The URDF's <mimic> joints, reported by the component as multiplier * parent.
+mimics:
+  thumb_ip:   { parent: thumb_cmc_pitch, multiplier: 1.86 }
+  index_dip:  { parent: index_mcp_pitch, multiplier: 0.89 }
+  middle_dip: { parent: middle_mcp_pitch, multiplier: 0.89 }
+  ring_dip:   { parent: ring_mcp_pitch, multiplier: 0.89 }
+  pinky_dip:  { parent: pinky_mcp_pitch, multiplier: 0.89 }

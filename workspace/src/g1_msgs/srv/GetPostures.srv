@@ -1,0 +1,7 @@
+# What SetArmPosture and SetGrip can be asked for on the robot that is running: every planning
+# group the server drives and the named postures its SRDF gives each.
+---
+# One entry per group, in the same order as `postures`.
+string[] groups
+# Each group's posture names, comma separated, e.g. "home,ready,tucked".
+string[] postures

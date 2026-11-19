@@ -1,0 +1,23 @@
+# Inverse kinematics for the 23-DOF G1's two five-joint arms.
+#
+# Five joints cannot hold a 6-DoF pose, so pick_ik solves for position only (rotation_scale 0):
+# a pose goal's orientation is ignored, and MoveHand's goals are positions anyway. Named postures
+# are joint goals and never reach IK. both_arms has no entry, for the reason kinematics.yaml gives.
+
+left_arm:
+  kinematics_solver: pick_ik/PickIkPlugin
+  kinematics_solver_timeout: 0.05
+  mode: global
+  stop_optimization_on_valid_solution: true
+  position_threshold: 0.002
+  rotation_scale: 0.0
+  minimal_displacement_weight: 0.0
+
+right_arm:
+  kinematics_solver: pick_ik/PickIkPlugin
+  kinematics_solver_timeout: 0.05
+  mode: global
+  stop_optimization_on_valid_solution: true
+  position_threshold: 0.002
+  rotation_scale: 0.0
+  minimal_displacement_weight: 0.0

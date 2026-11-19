@@ -19,7 +19,7 @@ PARAMS_FILE = os.path.join(SHARE, "config", "localization.yaml")
 
 # The committed map of each g1_bringup world that has one. `world` is the caller's argument
 # (bringup, nav_sim); launched alone, or for any other world, this is the facility's map.
-WORLD_MAPS = {"navigation": "facility.yaml", "apartment": "apartment.yaml"}
+WORLD_MAPS = {"navigation": "facility.yaml", "apartment": "apartment.yaml", "ces": "ces.yaml"}
 
 
 def _world_map():

@@ -13,7 +13,12 @@ of any table in front, and MoveIt cannot plan from a start state in collision.
 
 With --posture sides the arms hang beside the thighs instead, for exploration: at zero the
 forearms point forward, into both cameras' views, and a real detector maps the hands as objects.
---no-hands leaves the Dex3 hands alone.
+--no-hands leaves the hands alone.
+
+The robot is read off controller_manager rather than told: the hands are whichever hand components
+it carries (Dex3 or LinkerBot O6, or none on a 23-DOF G1 with its rubber hands), and the arm joints
+are the ones arm_trajectory_controller claims, five per arm on the 23-DOF G1 and seven on the
+29-DOF.
 
 Python, not C++: one-shot sequencing well under 1 Hz.
 """
@@ -26,6 +31,7 @@ import rclpy
 from control_msgs.action import FollowJointTrajectory
 from controller_manager_msgs.srv import (
     ListControllers,
+    ListHardwareComponents,
     SetHardwareComponentState,
     SwitchController,
 )
@@ -41,11 +47,12 @@ CONTROLLER_NAME = "arm_trajectory_controller"
 ARM_FREEZE_CONTROLLER = "arm_freeze_controller"
 
 # What may hold each part of the body: the waist, the arms, and the legs, through the balance
-# policy or, with the pelvis pinned, a freeze.
+# policy or, with the pelvis pinned, a freeze. On the 23-DOF G1 the onboard controller holds the
+# legs, and loco_controller is what is up once it walks.
 BODY_HOLDERS = (
     ("waist_freeze_controller",),
     (ARM_FREEZE_CONTROLLER, CONTROLLER_NAME),
-    ("agile_controller", "locomotion_freeze_controller"),
+    ("agile_controller", "locomotion_freeze_controller", "loco_controller"),
 )
 # How long the balance policy carries the robot before the arms move. The simulator lets go of its
 # start-up hold 0.5 s after the last joint is claimed; arms set moving within a second of that
@@ -53,11 +60,14 @@ BODY_HOLDERS = (
 SETTLE_S = 3.0
 BODY_TIMEOUT_S = 60.0
 
-# Best-effort: a Dex3 that is absent or not publishing state must not cost the arm, and
-# G1Dex3System refuses to activate without fresh feedback.
+# Best-effort: a hand that is absent or not publishing state must not cost the arm, and both hand
+# components refuse to activate without fresh feedback. Whichever of these controller_manager
+# carries is the robot's hand; both kinds drive the same two controllers.
 HANDS = (
     ("G1Dex3SystemLeft", "left_hand_controller"),
     ("G1Dex3SystemRight", "right_hand_controller"),
+    ("LinkerBotO6SystemLeft", "left_hand_controller"),
+    ("LinkerBotO6SystemRight", "right_hand_controller"),
 )
 # Shorter than the arm's: an absent hand should be reported quickly, not waited out twice.
 HAND_ACTIVATE_TIMEOUT_S = 5.0
@@ -166,7 +176,29 @@ def retry_switch(node, client, activate, deactivate, retry_timeout_s):
     return False
 
 
-def move_arms(node, name, timeout_s=20.0):
+def fitted_hands(node, timeout_s):
+    """The HANDS entries controller_manager carries; none for a G1 with no hand components."""
+    client = node.create_client(
+        ListHardwareComponents, "/controller_manager/list_hardware_components"
+    )
+    if not client.wait_for_service(timeout_sec=timeout_s):
+        return ()
+    future = client.call_async(ListHardwareComponents.Request())
+    rclpy.spin_until_future_complete(node, future, timeout_sec=timeout_s)
+    result = future.result() if future.done() else None
+    names = {c.name for c in result.component} if result else set()
+    return tuple(entry for entry in HANDS if entry[0] in names)
+
+
+def arm_joints(listed):
+    """The joints arm_trajectory_controller claims, from its position interfaces."""
+    for controller in listed.controller if listed else ():
+        if controller.name == CONTROLLER_NAME:
+            return {i.rsplit("/", 1)[0] for i in controller.required_command_interfaces}
+    return set()
+
+
+def move_arms(node, name, joints, timeout_s=20.0):
     """Sends the arms to a posture through the controller, with no planner involved."""
     client = ActionClient(node, FollowJointTrajectory, ARM_TRAJECTORY_ACTION)
     if not client.wait_for_server(timeout_sec=timeout_s):
@@ -178,8 +210,11 @@ def move_arms(node, name, timeout_s=20.0):
     goal = FollowJointTrajectory.Goal()
     point = JointTrajectoryPoint()
     # The rolls above are the left arm's, as the SRDF writes its states; the right one mirrors.
+    # Only the joints this arm has: the 23-DOF G1 ends at wrist roll.
     for side, mirror in (("left", 1.0), ("right", -1.0)):
         for joint, value in POSTURES[name].items():
+            if joints and f"{side}_{joint}" not in joints:
+                continue
             goal.trajectory.joint_names.append(f"{side}_{joint}")
             point.positions.append(mirror * value if joint.endswith("roll_joint") else value)
     # Not int(seconds): a truncated fraction is an arm moving faster than this file says.
@@ -207,7 +242,7 @@ def move_arms(node, name, timeout_s=20.0):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--posture", choices=sorted(POSTURES), default="clear")
-    parser.add_argument("--no-hands", action="store_true", help="leave the Dex3 hands alone")
+    parser.add_argument("--no-hands", action="store_true", help="leave the hands alone")
     args = parser.parse_args(remove_ros_args(sys.argv if argv is None else argv)[1:])
     rclpy.init()
     node = Node("g1_bringup_activate_arm")
@@ -239,6 +274,7 @@ def main(argv=None):
         if CONTROLLER_NAME in active and ARM_FREEZE_CONTROLLER not in active:
             node.get_logger().info("the arm is acquired already; nothing moves.")
             return 0
+        joints = arm_joints(listed)
 
         # One switch, not two: see this script's module docstring.
         node.get_logger().info(f"activating controller {CONTROLLER_NAME}...")
@@ -252,7 +288,8 @@ def main(argv=None):
             node.get_logger().error(f"failed to activate {CONTROLLER_NAME}")
             return 1
 
-        for component, controller in () if args.no_hands else HANDS:
+        hands = () if args.no_hands else fitted_hands(node, SERVICE_CALL_TIMEOUT_S)
+        for component, controller in hands:
             node.get_logger().info(f"activating hand {component}...")
             if not set_component_state(
                 node,
@@ -271,14 +308,14 @@ def main(argv=None):
 
         if args.posture == "sides":
             node.get_logger().info("hanging the arms at the sides, out of the cameras' view...")
-            if not move_arms(node, "sides"):
+            if not move_arms(node, "sides", joints):
                 node.get_logger().error("the arms still hang where the cameras see them")
                 return 1
             node.get_logger().info("the arms hang at the sides.")
             return 0
 
         node.get_logger().info("moving the arms clear of whatever is in front of the robot...")
-        if not move_arms(node, "clear"):
+        if not move_arms(node, "clear", joints):
             # The arm is acquired and usable by hand, but still inside the octomap, so every
             # planned motion after this is refused at its start state.
             node.get_logger().error(
@@ -288,7 +325,11 @@ def main(argv=None):
             return 1
         node.get_logger().info("the arms are clear and a planner can work from here.")
 
-        node.get_logger().info("activation complete: the arm and both hands are acquired.")
+        node.get_logger().info(
+            "activation complete: the arm and both hands are acquired."
+            if hands
+            else "activation complete: the arm is acquired; there are no hands to activate."
+        )
         return 0
     finally:
         node.destroy_node()

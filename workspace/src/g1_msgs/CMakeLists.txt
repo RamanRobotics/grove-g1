@@ -20,11 +20,13 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/Place.action"
   "action/Retreat.action"
   "action/SetArmPosture.action"
+  "action/SetGrip.action"
   "action/StepClear.action"
   "msg/ExemplarPoint.msg"
   "srv/GenerateGrasps.srv"
   "srv/GroundInstruction.srv"
   "srv/GetActionChunk.srv"
+  "srv/GetPostures.srv"
   DEPENDENCIES builtin_interfaces geometry_msgs std_msgs trajectory_msgs
 )
 

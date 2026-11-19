@@ -36,4 +36,16 @@
     </class>
   </library>
 
+  <library path="g1_loco_controller">
+    <class name="g1_controllers/G1LocoController"
+           type="g1_controllers::G1LocoController"
+           base_class_type="controller_interface::ControllerInterface">
+      <description>
+        G1AgileController's /cmd_vel contract for a G1 that walks on its onboard controller:
+        the clamped twist goes to the hardware component's loco interfaces, and no joint is
+        claimed.
+      </description>
+    </class>
+  </library>
+
 </class_libraries>

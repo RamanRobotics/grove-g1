@@ -1,0 +1,47 @@
+# Hardware parameters for g1_hardware_interface/G1ArmSdkSystem, the 23-DOF G1 under Unitree's
+# onboard locomotion.
+#
+# Consumed by urdf/g1_23dof.urdf.xacro at xacro-expansion time, not by controller_manager:
+# ros2_control plugins only ever see parameters that arrive as <ros2_control><param> tags.
+
+system:
+  # As lowcmd_params.yaml: the simulator's and ROS_DOMAIN_ID's domain, and an empty interface so
+  # CYCLONEDDS_URI decides where DDS goes.
+  domain_id: 1
+  network_interface: ""
+
+  lowstate_timeout_ms: 100   # ms; rt/lowstate older than this errors the component while active
+  engage_ramp_s: 1.0         # s; rt/arm_sdk weight 0 -> 1 once every upper-body joint is claimed.
+                             # Unitree's arm_sdk example blends in over 1 s.
+  release_ramp_s: 1.0        # s; weight 1 -> 0 on deactivate, handing the arms to the onboard pose
+
+  # The loco service is an RPC, sent from a thread of its own at this rate while the base moves.
+  loco_command_rate_hz: 20.0
+  # s; how long the onboard controller keeps walking on one command. Short, so the robot stops
+  # on its own within this if the stack dies; it must cover two send periods.
+  loco_command_duration_s: 0.5
+  # m/s and rad/s; a last clamp under loco_controller's own.
+  max_linear_speed: 0.6
+  max_angular_speed: 0.9
+
+  # Put the onboard controller into walking (FSM 500) on activate. Off: on the robot an operator
+  # stands it up and starts walking with the remote first, and the simulator's emulator is always
+  # walking. Never true on a robot that is not already standing.
+  start_locomotion: false
+
+# Gains for joints a controller claims position-only, which is how arm_trajectory_controller
+# drives the arms. Unitree's arm_sdk example uses 60/1.5 for every upper-body joint; the onboard
+# controller compensates the body, so no more is needed to track a trajectory.
+# The legs are absent on purpose: they stay the onboard controller's and export no commands.
+joints:
+  waist_yaw_joint:             { position_only_kp: 60.0, position_only_kd: 1.5 }
+  left_shoulder_pitch_joint:   { position_only_kp: 60.0, position_only_kd: 1.5 }
+  left_shoulder_roll_joint:    { position_only_kp: 60.0, position_only_kd: 1.5 }
+  left_shoulder_yaw_joint:     { position_only_kp: 60.0, position_only_kd: 1.5 }
+  left_elbow_joint:            { position_only_kp: 60.0, position_only_kd: 1.5 }
+  left_wrist_roll_joint:       { position_only_kp: 60.0, position_only_kd: 1.5 }
+  right_shoulder_pitch_joint:  { position_only_kp: 60.0, position_only_kd: 1.5 }
+  right_shoulder_roll_joint:   { position_only_kp: 60.0, position_only_kd: 1.5 }
+  right_shoulder_yaw_joint:    { position_only_kp: 60.0, position_only_kd: 1.5 }
+  right_elbow_joint:           { position_only_kp: 60.0, position_only_kd: 1.5 }
+  right_wrist_roll_joint:      { position_only_kp: 60.0, position_only_kd: 1.5 }

@@ -2,7 +2,7 @@
 <package format="3">
   <name>g1_hand_interface</name>
   <version>0.1.0</version>
-  <description>ros2_control system interface for the Unitree Dex3-1 hand, over its own SDK channels.</description>
+  <description>ros2_control system interfaces for the G1's hands: the Unitree Dex3-1 over its own SDK channels, and the LinkerBot O6 over SocketCAN.</description>
   <maintainer email="gupta.adyansh@gmail.com">Adyansh Gupta</maintainer>
   <license>BSD-3-Clause</license>
 

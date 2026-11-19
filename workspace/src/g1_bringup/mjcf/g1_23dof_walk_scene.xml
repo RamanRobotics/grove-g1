@@ -1,0 +1,21 @@
+<mujoco model="g1_23dof_walk_scene">
+  <!-- Wraps whichever world the launch staged as the base for the 23-DOF G1, which walks on
+       Unitree's onboard controller. The simulator's loco emulator stands in for that controller:
+       it carries the pelvis on this mocap anchor at the commanded twist and swings the legs, so
+       the robot walks kinematically rather than balancing. The emulator only runs in a model
+       that has this anchor. -->
+  <include file="g1_walk_base.staged.xml"/>
+
+  <worldbody>
+    <!-- Just under the 0.793 m spawn height with the legs straight: at the emulator's bent-knee
+         stance the feet clear the floor by a few millimetres, so a gliding stance foot does not
+         drag. -->
+    <body name="loco_anchor" mocap="true" pos="0 0 0.790"/>
+  </worldbody>
+
+  <equality>
+    <!-- Never released. relpose pins the pelvis onto the anchor rather than at its spawn offset. -->
+    <weld name="loco_follow" body1="pelvis" body2="loco_anchor" relpose="0 0 0 1 0 0 0"
+          solref="0.02 1"/>
+  </equality>
+</mujoco>

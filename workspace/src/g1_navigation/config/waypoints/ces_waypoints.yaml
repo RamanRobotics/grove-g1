@@ -1,0 +1,20 @@
+# world:=ces waypoint tour, in the map frame, for the Nav2 RViz panel: switch it to waypoint mode,
+# "Load WayPoints", pick this file, then "Start Waypoint Following" (or "Start Nav Through Poses").
+# pose is [x, y, z] in metres, orientation an [x, y, z, w] quaternion. Recorded from /goal_pose.
+waypoints:
+  # Inbound rack, facing it (+y).
+  waypoint0:
+    pose: [-0.30905240774154663, 0.7068440318107605, 0.0]
+    orientation: [0.0, 0.0, 0.7072969330290316, 0.7069165781955644]
+  # Assembly bench side, facing -y.
+  waypoint1:
+    pose: [2.003652811050415, 0.5756329894065857, 0.0]
+    orientation: [0.0, 0.0, -0.7087864870813506, 0.7054230757005887]
+  # Outbound desk, facing it (-y).
+  waypoint2:
+    pose: [-0.48154205083847046, -0.6200374960899353, 0.0]
+    orientation: [0.0, 0.0, -0.6874741293762168, 0.72620886901663]
+  # Back by home, facing +x.
+  waypoint3:
+    pose: [-0.5403082966804504, -0.002989470958709717, 0.0]
+    orientation: [0.0, 0.0, 0.04775564216892677, 0.9988590484352802]

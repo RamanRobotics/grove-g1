@@ -136,6 +136,33 @@ Tunables can be changed with `ros2 param set` between goals. A set during a goal
 `graspgen_to_grasp_frame_xyz_rpy`, `world_frame`, the `move_hand_*_shoulder` links and
 `move_hand_point_side_steps_m` are read-only.
 
+## g1_arm_motion_server
+
+Arm and hand motion over MoveIt for any G1 and any hand, started by `g1_bringup` with
+`robot:=g1_23dof moveit:=true` (`launch/arm_motion.launch.py`, `config/g1_arm_motion_server.yaml`).
+It drives whichever of `left_arm`, `right_arm`, `both_arms`, `left_hand` and `right_hand` the
+running SRDF defines, takes no control authority (`activate_arm` first), and runs one goal at a time.
+
+| Interface | Type | Does |
+|---|---|---|
+| `~/set_arm_posture` | `g1_msgs/action/SetArmPosture` | A group to a named SRDF posture. |
+| `~/move_hand` | `g1_msgs/action/MoveHand` | A hand's tip to a point (`reach`) or `point_reach_m` along the shoulder's line to it (`point`), the nearest collision-free IK solution, refused past `max_reach_m`. |
+| `~/set_grip` | `g1_msgs/action/SetGrip` | Any hand `closure` (0-1) of the way from its `open` to its `closed` posture. Refused without hand joints. |
+| `~/get_postures` | `g1_msgs/srv/GetPostures` | The groups served and each one's posture names. |
+
+```bash
+ros2 action send_goal /g1_arm_motion_server/set_arm_posture g1_msgs/action/SetArmPosture \
+  "{group: right_arm, named_target: ready}"
+ros2 action send_goal /g1_arm_motion_server/set_grip g1_msgs/action/SetGrip "{arm: right, closure: 0.5}"
+ros2 action send_goal /g1_arm_motion_server/move_hand g1_msgs/action/MoveHand \
+  "{arm: left, mode: reach, target: {header: {frame_id: pelvis}, point: {x: 0.35, y: 0.2, z: 0.2}}}"
+ros2 service call /g1_arm_motion_server/get_postures g1_msgs/srv/GetPostures
+```
+
+Pick and place stay `g1_manipulation_server`'s, for the 29-DOF G1's Dex3: the grip check reads
+finger effort, which the O6 does not report. `test_arm_motion` covers the grip interpolation and
+pointing reach.
+
 ## Running
 
 ```bash

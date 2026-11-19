@@ -1,0 +1,64 @@
+# The Dex3-1 hands' controllers, layered over armsdk_controllers.yaml for the 23-DOF G1 with
+# hand:=dex3. The same two controllers lowcmd_controllers.yaml carries for the 29-DOF stack.
+
+controller_manager:
+  ros__parameters:
+    # Both hands wait for activate_arm, so an absent or unpowered hand fails at a point we
+    # control rather than during startup.
+    hardware_components_initial_state:
+      inactive:
+        - "G1Dex3SystemLeft"
+        - "G1Dex3SystemRight"
+
+    left_hand_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    right_hand_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+# Dex3 wire order. The JTC maps by name, but g1_moveit_config's drift test pins this list to the
+# SRDF and to the positional order the hand component writes.
+left_hand_controller:
+  ros__parameters:
+    joints:
+      - left_hand_thumb_0_joint
+      - left_hand_thumb_1_joint
+      - left_hand_thumb_2_joint
+      - left_hand_middle_0_joint
+      - left_hand_middle_1_joint
+      - left_hand_index_0_joint
+      - left_hand_index_1_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    # A grasp usually drives some fingers and leaves others where they are.
+    allow_partial_joints_goal: true
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 5.0
+
+right_hand_controller:
+  ros__parameters:
+    joints:
+      - right_hand_thumb_0_joint
+      - right_hand_thumb_1_joint
+      - right_hand_thumb_2_joint
+      - right_hand_middle_0_joint
+      - right_hand_middle_1_joint
+      - right_hand_index_0_joint
+      - right_hand_index_1_joint
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    state_publish_rate: 100.0
+    action_monitor_rate: 20.0
+    allow_partial_joints_goal: true
+    constraints:
+      stopped_velocity_tolerance: 0.05
+      goal_time: 5.0

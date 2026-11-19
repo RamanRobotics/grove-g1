@@ -1,0 +1,60 @@
+# moveit_controllers.yaml for the 23-DOF G1, hand:=dex3: the same layout, with the controllers
+# g1_controllers' armsdk_controllers.yaml and hand_dex3_controllers.yaml spawn. MoveIt never switches them.
+
+moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControllerManager
+moveit_manage_controllers: false
+
+moveit_simple_controller_manager:
+  controller_names:
+    - arm_trajectory_controller
+    - left_hand_controller
+    - right_hand_controller
+
+  arm_trajectory_controller:
+    type: FollowJointTrajectory
+    action_ns: follow_joint_trajectory
+    default: true
+    joints:
+      - left_shoulder_pitch_joint
+      - left_shoulder_roll_joint
+      - left_shoulder_yaw_joint
+      - left_elbow_joint
+      - left_wrist_roll_joint
+      - right_shoulder_pitch_joint
+      - right_shoulder_roll_joint
+      - right_shoulder_yaw_joint
+      - right_elbow_joint
+      - right_wrist_roll_joint
+
+  left_hand_controller:
+    type: FollowJointTrajectory
+    action_ns: follow_joint_trajectory
+    default: false
+    joints:
+      - left_hand_thumb_0_joint
+      - left_hand_thumb_1_joint
+      - left_hand_thumb_2_joint
+      - left_hand_middle_0_joint
+      - left_hand_middle_1_joint
+      - left_hand_index_0_joint
+      - left_hand_index_1_joint
+
+  right_hand_controller:
+    type: FollowJointTrajectory
+    action_ns: follow_joint_trajectory
+    default: false
+    joints:
+      - right_hand_thumb_0_joint
+      - right_hand_thumb_1_joint
+      - right_hand_thumb_2_joint
+      - right_hand_middle_0_joint
+      - right_hand_middle_1_joint
+      - right_hand_index_0_joint
+      - right_hand_index_1_joint
+
+trajectory_execution:
+  allowed_start_tolerance: 0.05
+  execution_duration_monitoring: true
+  allowed_execution_duration_scaling: 2.0
+  allowed_goal_duration_margin: 5.0
+  wait_for_trajectory_completion: true

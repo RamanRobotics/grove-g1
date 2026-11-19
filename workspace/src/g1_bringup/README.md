@@ -166,6 +166,46 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p speed:=0.35 -
 Linear commands below about 0.15 m/s fall in the gait's deadband and do not move the robot. Do not
 teleop while Nav2 or the base approach is driving. They publish `/cmd_vel` too.
 
+## The 23-DOF G1 and its hands
+
+`robot:=g1_23dof` runs the 23-DOF G1 (legs, waist yaw, five joints per arm). Unlike the 29-DOF
+stack it keeps Unitree's onboard locomotion: `G1ArmSdkSystem` sends `/cmd_vel` to the loco
+service through `loco_controller` and drives the waist and arms over `rt/arm_sdk`. The legs are
+state only. `hand:=` picks what is on the wrists:
+
+| `hand` | Component | Sim | Robot |
+|---|---|---|---|
+| `dummy` (default) | none: Unitree's rubber hands | rubber hands | rubber hands |
+| `dex3` | `G1Dex3System`, per hand | the simulator's Dex3 handler | `rt/dex3/<side>/*` |
+| `linkerbot_o6` | `LinkerBotO6System`, per hand | the simulator's O6 handler on `vcan0` | `can0` |
+
+```bash
+ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof                               # sim
+ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof hand:=dex3 mode:=mapping nav:=true
+./scripts/setup-vcan.sh                                                              # host, once per boot
+ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof hand:=linkerbot_o6
+ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof hand:=linkerbot_o6 sim:=false # robot
+```
+
+- **Simulation walks kinematically.** The simulator's loco emulator (`loco_emulator.cc` in
+  unitree_mujoco's grove branch) answers the loco service and `rt/arm_sdk` as the robot does, and
+  carries the pelvis on a mocap anchor at the commanded twist while the legs swing. It cannot
+  fall, so it validates the command path, odometry, the LiDAR and Nav2, not balance.
+- **On the robot**, stand it up and put it into walking with the remote first: the component never
+  changes the onboard FSM unless `start_locomotion` is set in `g1_description`'s
+  `armsdk_params.yaml`. `CYCLONEDDS_URI` must reach the robot's network. `sim:=false` starts only
+  the control stack, so `mode:=none`; the robot's own LiDAR driver and odometry are not wired in yet.
+- `activate_arm` works on both robots: it finds the hand components controller_manager carries and
+  the joints `arm_trajectory_controller` claims.
+- `moveit:=true` plans for the 23-DOF arms and the chosen hand, and adds `g1_arm_motion_server`
+  (`set_arm_posture`, `move_hand`, `set_grip`, `get_postures`; see `g1_manipulation`):
+  `ros2 launch g1_bringup bringup.launch.py robot:=g1_23dof hand:=linkerbot_o6 moveit:=true activate_arm:=true`.
+- Not on the 23-DOF G1: `manipulation` and `vla` (the Dex3 pick, place and learned grasp), servo,
+  `pin_pelvis`, and the `manipulation` and `tabletop` worlds. The Dex3 carry weld exists only with
+  `hand:=dex3`.
+- **Not measured**: the O6 mount on the wrist (`linkerbot_o6_params.yaml`'s `mount`) is a fingers-
+  forward, palm-in guess. Set it from the real bracket before trusting a grasp pose.
+
 ## Packages included but not depended on
 
 `bringup.launch.py` reaches `g1_navigation`, `g1_moveit_config`, `g1_manipulation`, `g1_perception`

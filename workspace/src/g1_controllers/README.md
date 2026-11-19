@@ -45,6 +45,15 @@ leave the arms unclaimed, and so unpowered, in between.
 `locomotion_freeze_controller` claims exactly the safety controller's joints: a wider set could not
 activate while the arm and waist are owned, so the emergency switch would fail.
 
+## The 23-DOF G1
+
+`g1_controllers/G1LocoController` is `agile_controller`'s `/cmd_vel` contract (timeout, clamps) for
+a G1 that walks on its onboard controller: it writes the twist to `G1ArmSdkSystem`'s `loco/*`
+interfaces and claims no joint. `config/armsdk_controllers.yaml` is that robot's spawn set
+(`loco_controller`, the waist and arm freezes, `arm_trajectory_controller` over ten joints), and
+`config/hand_{dex3,linkerbot_o6}_controllers.yaml` add the hands' controllers and components,
+layered over it by `g1_bringup`'s `control.launch.py`.
+
 ## Topics and services
 
 | Name | Type | Used by | Notes |

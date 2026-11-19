@@ -88,8 +88,8 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "world",
                 default_value="navigation",
-                description="Which g1_bringup scene to stage. Only 'navigation' and 'apartment' have "
-                "a committed map to localize against.",
+                description="Which g1_bringup scene to stage. Only 'navigation', 'apartment' and "
+                "'ces' have a committed map to localize against.",
             ),
             DeclareLaunchArgument(
                 "rviz",

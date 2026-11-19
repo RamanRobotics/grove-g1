@@ -1,0 +1,186 @@
+<mujoco model="g1_ces_scene">
+  <!-- CES demo floor plan: 20 ft x 10 ft area (6.096 m x 3.048 m), as drawn in the plan.
+       World origin is the G1 standing spot (plan position 9.5 ft, 5 ft). The plan is rotated 180
+       degrees about it, because the G1 spawns facing +x and has to face the brown assembly bench.
+       Plan (feet, origin at bottom-left corner) -> world (m):
+         X = (9.5 - x) * 0.3048,  Y = (5 - y) * 0.3048
+       Left 12 ft is the work cell (assembly + augmented worker, mobile manipulator, in/out bound),
+       right 8 ft is the visitor lounge. Every solid geom is in group 2, the only group the LiDAR sweep sees;
+       flat floor markings are left out. Staged next to the vendored g1_29dof.xml at launch. -->
+  <include file="g1_29dof.xml"/>
+
+  <statistic center="0 0 0.5" extent="4.0"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="-90" elevation="-45" offwidth="1280" offheight="720"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512"
+      height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+      rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5"
+      reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1" directional="true"/>
+    <geom group="2" name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+    <!-- Arena mat (20 x 10 ft) and 1 m perimeter walls -->
+    <geom name="arena_mat" type="box" pos="-0.152 0 0.002" size="3.048 1.524 0.002"
+      rgba="0.75 0.75 0.78 1" contype="0" conaffinity="0"/>
+    <geom group="2" name="wall_left" type="box" pos="2.896 0 0.5" size="0.02 1.544 0.5" rgba="0.1 0.3 0.4 1"/>
+    <geom group="2" name="wall_right" type="box" pos="-3.2 0 0.5" size="0.02 1.544 0.5" rgba="0.1 0.3 0.4 1"/>
+    <geom group="2" name="wall_bottom" type="box" pos="-0.152 1.524 0.5" size="3.068 0.02 0.5"
+      rgba="0.1 0.3 0.4 1"/>
+    <geom group="2" name="wall_top" type="box" pos="-0.152 -1.524 0.5" size="3.068 0.02 0.5" rgba="0.1 0.3 0.4 1"/>
+
+    <!-- Dashed divider between work cell and lounge at x = 12 ft -->
+    <geom name="divider" type="box" pos="-0.762 0 0.004" size="0.01 1.524 0.002"
+      rgba="1 1 1 1" contype="0" conaffinity="0"/>
+
+    <!-- Assembly (x 0-6 ft, y 4-6 ft): bench (brown), where the container is set down for the dummy robot -->
+    <geom group="2" name="assembly_table" type="box" pos="1.981 0 0.375" size="0.914 0.305 0.375"
+      rgba="0.55 0.45 0.35 1"/>
+    <!-- Where the G1 sets the container down; the mobile manipulator works on it from the far side. -->
+    <geom name="assembly_place_pad" type="box" pos="1.981 0 0.751" size="0.18 0.13 0.001"
+      rgba="0.3 0.8 0.3 1" contype="0" conaffinity="0"/>
+
+    <!-- Augmented worker zone (x 0-6 ft, y 2-4 ft): floor pad only, no person -->
+    <geom name="worker_zone" type="box" pos="1.981 0.61 0.004" size="0.914 0.305 0.002"
+      rgba="0.95 0.6 0.2 1" contype="0" conaffinity="0"/>
+
+    <!-- Mobile manipulator (dummy, static): parked on the far side of the assembly bench, facing it
+         (local +x points at +y), arms held out over the container drop pad. -->
+    <body name="mobile_manipulator" pos="1.981 -0.72 0" euler="0 0 1.5708">
+      <geom group="2" name="amr_base" type="box" pos="0 0 0.15" size="0.3 0.3 0.15" rgba="0.3 0.85 0.2 1"/>
+      <geom group="2" name="amr_mast" type="box" pos="0 0 0.6" size="0.1 0.12 0.3" rgba="0.92 0.92 0.92 1"/>
+      <geom group="2" name="amr_shoulder" type="box" pos="0 0 1.0" size="0.08 0.22 0.05" rgba="0.92 0.92 0.92 1"/>
+      <geom group="2" name="amr_arm_l" type="capsule" fromto="0 0.22 1.0 0.5 0.22 0.98" size="0.04"
+        rgba="0.35 0.35 0.4 1"/>
+      <geom group="2" name="amr_arm_r" type="capsule" fromto="0 -0.22 1.0 0.5 -0.22 0.98" size="0.04"
+        rgba="0.35 0.35 0.4 1"/>
+      <geom group="2" name="amr_head" type="sphere" pos="0 0 1.13" size="0.07" rgba="0.92 0.92 0.92 1"/>
+    </body>
+
+    <!-- Out Bound desk (x 10-12 ft, y 8-10 ft): same 0.75 m top height as the assembly bench, the
+         G1's second drop-off, plus its display -->
+    <geom group="2" name="outbound_table" type="box" pos="-0.457 -1.219 0.375" size="0.305 0.305 0.375"
+      rgba="0.7 0.7 0.72 1"/>
+    <geom name="outbound_place_pad" type="box" pos="-0.457 -1.219 0.751" size="0.18 0.13 0.001"
+      rgba="0.9 0.6 0.2 1" contype="0" conaffinity="0"/>
+    <geom group="2" name="outbound_display_leg" type="box" pos="-0.792 -1.219 0.3" size="0.02 0.1 0.3"
+      rgba="0.1 0.1 0.1 1"/>
+    <geom group="2" name="outbound_display" type="box" pos="-0.792 -1.219 0.9" size="0.03 0.305 0.3"
+      rgba="0.05 0.35 0.5 1"/>
+
+    <!-- In Bound (x 9-12 ft, y 0-2 ft): steel rack, 0.9 x 0.5 m, shelf tops at 0.40 and 0.75 m, open
+         to the +y side the G1 approaches from, plus its display -->
+    <geom group="2" name="rack_post_1" type="box" pos="0.135 1.459 0.55" size="0.02 0.02 0.55" rgba="0.45 0.5 0.55 1"/>
+    <geom group="2" name="rack_post_2" type="box" pos="-0.745 1.459 0.55" size="0.02 0.02 0.55" rgba="0.45 0.5 0.55 1"/>
+    <geom group="2" name="rack_post_3" type="box" pos="0.135 0.979 0.55" size="0.02 0.02 0.55" rgba="0.45 0.5 0.55 1"/>
+    <geom group="2" name="rack_post_4" type="box" pos="-0.745 0.979 0.55" size="0.02 0.02 0.55" rgba="0.45 0.5 0.55 1"/>
+    <geom group="2" name="rack_shelf_low" type="box" pos="-0.305 1.219 0.39" size="0.45 0.25 0.01" rgba="0.6 0.65 0.7 1"/>
+    <geom group="2" name="rack_shelf_high" type="box" pos="-0.305 1.219 0.74" size="0.45 0.25 0.01" rgba="0.6 0.65 0.7 1"/>
+    <geom group="2" name="inbound_display_leg" type="box" pos="-0.792 1.219 0.3" size="0.02 0.1 0.3"
+      rgba="0.1 0.1 0.1 1"/>
+    <geom group="2" name="inbound_display" type="box" pos="-0.792 1.219 0.9" size="0.03 0.305 0.3"
+      rgba="0.05 0.35 0.5 1"/>
+
+    <!-- The task container: a standard open-top polypropylene storage tote, 300 x 200 x 120 mm outer,
+         about 3 mm walls (6 mm here, for contact stability), 0.35 kg empty, with a lip on each short
+         end for the hands. Translucent PP on steel/PP, so friction is 0.4 rather than the 1.0 of
+         the tabletop blocks. Long axis along x, so the G1 grips the short ends. -->
+    <body name="task_container" pos="-0.305 1.219 0.75">
+      <freejoint name="task_container_joint"/>
+      <geom name="task_container_base" type="box" pos="0 0 0.003" size="0.15 0.1 0.003" mass="0.10" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom name="task_container_wall_long_1" type="box" pos="0 0.097 0.06" size="0.15 0.003 0.06" mass="0.055" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom name="task_container_wall_long_2" type="box" pos="0 -0.097 0.06" size="0.15 0.003 0.06" mass="0.055" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom name="task_container_wall_short_1" type="box" pos="0.147 0 0.06" size="0.003 0.094 0.06" mass="0.055" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom name="task_container_wall_short_2" type="box" pos="-0.147 0 0.06" size="0.003 0.094 0.06" mass="0.055" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom name="task_container_lip_1" type="box" pos="0.16 0 0.112" size="0.01 0.1 0.008" mass="0.015" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom name="task_container_lip_2" type="box" pos="-0.16 0 0.112" size="0.01 0.1 0.008" mass="0.015" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+    </body>
+
+    <!-- The parts it carries, for the mobile manipulator to work on -->
+    <body name="part_cylinder" pos="-0.235 1.219 0.776">
+      <freejoint name="part_cylinder_joint"/>
+      <geom type="cylinder" size="0.025 0.02" mass="0.08" rgba="0.8 0.3 0.2 1" contype="3" conaffinity="3"
+        group="2" friction="0.8 0.005 0.0001"/>
+    </body>
+    <body name="part_box" pos="-0.305 1.219 0.771">
+      <freejoint name="part_box_joint"/>
+      <geom type="box" size="0.025 0.02 0.015" mass="0.06" rgba="0.9 0.8 0.2 1" contype="3" conaffinity="3"
+        group="2" friction="0.8 0.005 0.0001"/>
+    </body>
+    <body name="part_block" pos="-0.375 1.219 0.776">
+      <freejoint name="part_block_joint"/>
+      <geom type="box" size="0.02 0.02 0.02" mass="0.07" rgba="0.2 0.4 0.8 1" contype="3" conaffinity="3"
+        group="2" friction="0.8 0.005 0.0001"/>
+    </body>
+
+    <!-- A second, empty tote of the same kind on the lower shelf, as stock -->
+    <body name="stock_container" pos="-0.305 1.219 0.4">
+      <freejoint name="stock_container_joint"/>
+      <geom type="box" pos="0 0 0.003" size="0.15 0.1 0.003" mass="0.10" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom type="box" pos="0 0.097 0.06" size="0.15 0.003 0.06" mass="0.055" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom type="box" pos="0 -0.097 0.06" size="0.15 0.003 0.06" mass="0.055" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom type="box" pos="0.147 0 0.06" size="0.003 0.094 0.06" mass="0.055" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom type="box" pos="-0.147 0 0.06" size="0.003 0.094 0.06" mass="0.055" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom type="box" pos="0.16 0 0.112" size="0.01 0.1 0.008" mass="0.015" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+      <geom type="box" pos="-0.16 0 0.112" size="0.01 0.1 0.008" mass="0.015" contype="3" conaffinity="3" group="2" friction="0.4 0.005 0.0001" rgba="0.85 0.88 0.9 0.85"/>
+    </body>
+
+    <!-- Task waypoints: home is where the G1 spawns and returns to -->
+    <geom name="home_marker" type="cylinder" pos="0 0 0.004" size="0.3 0.002" rgba="1 0.9 0.2 1"
+      contype="0" conaffinity="0"/>
+    <site name="home" pos="0 0 0.01"/>
+    <site name="rack_pick" pos="-0.305 1.219 0.75"/>
+    <site name="assembly_place" pos="1.981 0 0.75"/>
+    <site name="outbound_place" pos="-0.457 -1.219 0.75"/>
+
+    <!-- Visitor lounge (x 12-20 ft): round table with four chairs, centered at 17 ft, 5 ft -->
+    <body name="lounge_table" pos="-2.286 0 0" euler="0 0 3.1416">
+      <geom group="2" name="lounge_table_base" type="cylinder" pos="0 0 0.01" size="0.25 0.01" rgba="0.6 0.6 0.6 1"/>
+      <geom group="2" name="lounge_table_stem" type="cylinder" pos="0 0 0.36" size="0.05 0.36" rgba="0.6 0.6 0.6 1"/>
+      <geom group="2" name="lounge_table_top" type="cylinder" pos="0 0 0.74" size="0.5 0.02" rgba="0.5 0.2 0.15 1"/>
+
+      <!-- Chair local +y points away from the table; euler z (rad) = outward angle - pi/2 -->
+      <body name="chair_1" pos="0.601 0.601 0" euler="0 0 -0.785">
+        <geom group="2" type="box" pos="0 0 0.45" size="0.2 0.2 0.02" rgba="0.08 0.08 0.08 1"/>
+        <geom group="2" type="box" pos="0 0.2 0.75" size="0.2 0.02 0.25" rgba="0.08 0.08 0.08 1"/>
+        <geom group="2" type="box" pos="0 0 0.22" size="0.03 0.03 0.22" rgba="0.7 0.7 0.7 1"/>
+      </body>
+      <body name="chair_2" pos="-0.601 0.601 0" euler="0 0 0.785">
+        <geom group="2" type="box" pos="0 0 0.45" size="0.2 0.2 0.02" rgba="0.08 0.08 0.08 1"/>
+        <geom group="2" type="box" pos="0 0.2 0.75" size="0.2 0.02 0.25" rgba="0.08 0.08 0.08 1"/>
+        <geom group="2" type="box" pos="0 0 0.22" size="0.03 0.03 0.22" rgba="0.7 0.7 0.7 1"/>
+      </body>
+      <body name="chair_3" pos="-0.601 -0.601 0" euler="0 0 2.356">
+        <geom group="2" type="box" pos="0 0 0.45" size="0.2 0.2 0.02" rgba="0.08 0.08 0.08 1"/>
+        <geom group="2" type="box" pos="0 0.2 0.75" size="0.2 0.02 0.25" rgba="0.08 0.08 0.08 1"/>
+        <geom group="2" type="box" pos="0 0 0.22" size="0.03 0.03 0.22" rgba="0.7 0.7 0.7 1"/>
+      </body>
+      <body name="chair_4" pos="0.601 -0.601 0" euler="0 0 3.927">
+        <geom group="2" type="box" pos="0 0 0.45" size="0.2 0.2 0.02" rgba="0.08 0.08 0.08 1"/>
+        <geom group="2" type="box" pos="0 0.2 0.75" size="0.2 0.02 0.25" rgba="0.08 0.08 0.08 1"/>
+        <geom group="2" type="box" pos="0 0 0.22" size="0.03 0.03 0.22" rgba="0.7 0.7 0.7 1"/>
+      </body>
+    </body>
+    <!-- Viewpoints on each station, fixed in the world -->
+    <camera name="ces_overview" pos="-0.15 3.2 3.2" xyaxes="-1 0 0 0 -0.645 0.764" fovy="60"/>
+    <camera name="rack_cam" pos="-0.305 0.5 1.6" xyaxes="1 0 0 0 0.764 0.646" fovy="50"/>
+    <camera name="assembly_cam" pos="1.981 1.3 1.7" xyaxes="-1 0 0 0 -0.515 0.858" fovy="50"/>
+    <camera name="outbound_cam" pos="-0.457 -0.2 1.6" xyaxes="-1 0 0 0 -0.64 0.768" fovy="50"/>
+
+    <!-- Camera intrinsics only: the sensor sampler moves each to its mount in g1_description's
+         cameras.yaml every frame. -->
+    <camera name="d435i" mode="fixed" fovy="58" resolution="848 480" pos="0 0 1"/>
+    <camera name="chest_d435i" mode="fixed" fovy="58" resolution="848 480" pos="0 0 1"/>
+  </worldbody>
+
+</mujoco>

@@ -52,6 +52,24 @@ It also adds frames to Unitree's URDF:
 | `left_hand_grasp_frame`, `right_hand_grasp_frame` | `*_hand_palm_link` | Where the Dex3 closes. Pose goals target it rather than the palm origin. |
 | `d435_visual`, `chest_camera_visual`, `mid360_visual` | their sensor links | Bodies for RViz. Visual only, so they stay out of MoveIt's planning scene. |
 
+## The 23-DOF G1
+
+`urdf/g1_23dof.urdf.xacro` is the 23-DOF entry point, with `hand:=dummy|dex3|linkerbot_o6` and,
+for the O6, `o6_can_interface:=` (empty takes `config/linkerbot_o6_params.yaml`'s `can0`).
+
+| Path | Purpose |
+|---|---|
+| `urdf/g1_23dof_rev_1_0.urdf.xacro` | Unitree's `g1_23dof_rev_1_0.urdf` from unitree_ros, mesh paths rewritten to `package://`, the rubber hands behind the `hand` arg. |
+| `urdf/g1_23dof_dex3.xacro` | The Dex3 links from the vendored 29-DOF description, on the 23-DOF wrist roll at the 29-DOF wrist chain's zero offset. |
+| `urdf/linkerbot_o6.xacro`, `meshes/linkerbot_o6/` | LinkerBot's O6 URDF and collision meshes (Apache-2.0), also used as visuals. |
+| `urdf/g1_sensor_frames.xacro`, `urdf/g1_dex3.xacro` | The sensor frames and the Dex3 components, shared with `g1_common.xacro`. |
+| `config/armsdk_params.yaml` | `G1ArmSdkSystem`'s parameters and the upper body's position-only gains. |
+| `config/linkerbot_o6_params.yaml` | `LinkerBotO6System`'s parameters, joint limits, mimics and the (unmeasured) wrist mount. |
+
+The body component is `G1ArmSdkSystem`: twelve state-only leg joints, waist yaw and ten arm joints
+with the five command interfaces, the `imu` sensor and a `loco` GPIO (`linear_x`, `linear_y`,
+`angular_z`). `test_23dof_xacro` checks it with each hand.
+
 ## Parameters
 
 - `config/lowcmd_params.yaml` sets the body component's parameters, described in [g1_hardware_interface](../g1_hardware_interface/README.md#parameters), and a `position_only_kp` and `position_only_kd` per joint.
